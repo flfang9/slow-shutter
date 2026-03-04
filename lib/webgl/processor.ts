@@ -67,33 +67,11 @@ export class EffectProcessor {
   ): WebGLTexture {
     const gl = this.gl;
 
-    // Use the program
-    gl.useProgram(program);
-
-    // Setup quad geometry
-    setupQuad(gl, program);
-
-    // Bind input texture
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, inputTexture);
-    gl.uniform1i(gl.getUniformLocation(program, 'u_image'), 0);
-
-    // Set uniforms
-    for (const [name, value] of Object.entries(uniforms)) {
-      const location = gl.getUniformLocation(program, name);
-      if (location) {
-        if (typeof value === 'number') {
-          gl.uniform1f(location, value);
-        } else if (Array.isArray(value) && value.length === 2) {
-          gl.uniform2f(location, value[0], value[1]);
-        }
-      }
-    }
-
-    // Create framebuffer for output
+    // Create framebuffer and output texture FIRST
     const framebuffer = gl.createFramebuffer();
     const outputTexture = gl.createTexture();
 
+    // Setup output texture
     gl.bindTexture(gl.TEXTURE_2D, outputTexture);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -111,6 +89,7 @@ export class EffectProcessor {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    // Attach to framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.framebufferTexture2D(
       gl.FRAMEBUFFER,
@@ -120,12 +99,38 @@ export class EffectProcessor {
       0
     );
 
+    // Now use the program and bind input texture
+    gl.useProgram(program);
+
+    // Setup quad geometry
+    setupQuad(gl, program);
+
+    // Bind input texture to texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, inputTexture);
+    gl.uniform1i(gl.getUniformLocation(program, 'u_image'), 0);
+
+    // Set uniforms
+    for (const [name, value] of Object.entries(uniforms)) {
+      const location = gl.getUniformLocation(program, name);
+      if (location) {
+        if (typeof value === 'number') {
+          gl.uniform1f(location, value);
+        } else if (Array.isArray(value) && value.length === 2) {
+          gl.uniform2f(location, value[0], value[1]);
+        }
+      }
+    }
+
     // Render
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Cleanup
+    // Unbind everything to prevent feedback loops
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    // Clean up framebuffer (but keep texture for next pass)
     gl.deleteFramebuffer(framebuffer);
 
     return outputTexture!;
@@ -155,43 +160,56 @@ export class EffectProcessor {
     const resolution = [image.width, image.height];
     const normalizedIntensity = intensity / 100;
 
+    // Track textures for cleanup
+    const texturesToCleanup: WebGLTexture[] = [];
+
     // Step 1: Apply blur effect
     const effectProgram = this.programs.get(effect);
     if (effectProgram) {
+      const oldTexture = currentTexture;
       currentTexture = this.renderPass(effectProgram, currentTexture, {
         u_intensity: normalizedIntensity,
         u_resolution: resolution,
       });
+      texturesToCleanup.push(oldTexture);
     }
 
     // Step 2: Post-processing stack
     // Film grain
     const grainProgram = this.programs.get('film-grain');
     if (grainProgram) {
+      const oldTexture = currentTexture;
       currentTexture = this.renderPass(grainProgram, currentTexture, {
         u_time: Math.random() * 1000,
         u_resolution: resolution,
       });
+      texturesToCleanup.push(oldTexture);
     }
 
     // Vibrance boost
     const vibranceProgram = this.programs.get('vibrance');
     if (vibranceProgram) {
+      const oldTexture = currentTexture;
       currentTexture = this.renderPass(vibranceProgram, currentTexture);
+      texturesToCleanup.push(oldTexture);
     }
 
     // Light bloom
     const bloomProgram = this.programs.get('bloom');
     if (bloomProgram) {
+      const oldTexture = currentTexture;
       currentTexture = this.renderPass(bloomProgram, currentTexture, {
         u_resolution: resolution,
       });
+      texturesToCleanup.push(oldTexture);
     }
 
     // Contrast curve
     const contrastProgram = this.programs.get('contrast-curve');
     if (contrastProgram) {
+      const oldTexture = currentTexture;
       currentTexture = this.renderPass(contrastProgram, currentTexture);
+      texturesToCleanup.push(oldTexture);
     }
 
     // Final render to canvas
@@ -206,10 +224,20 @@ export class EffectProcessor {
       gl.uniform1i(gl.getUniformLocation(finalProgram, 'u_image'), 0);
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+      // Unbind texture
+      gl.bindTexture(gl.TEXTURE_2D, null);
       console.log('Final render complete');
     } else {
       console.error('Pass-through program not found!');
     }
+
+    // Clean up all intermediate textures
+    texturesToCleanup.push(currentTexture);
+    for (const texture of texturesToCleanup) {
+      gl.deleteTexture(texture);
+    }
+    console.log(`Cleaned up ${texturesToCleanup.length} textures`);
 
     console.log('Returning canvas:', this.canvas);
     return this.canvas;
