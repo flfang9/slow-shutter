@@ -19,11 +19,14 @@ export class EffectProcessor {
   private programs: Map<string, WebGLProgram> = new Map();
 
   constructor(canvas: HTMLCanvasElement) {
+    console.log('Initializing EffectProcessor with canvas:', canvas);
     this.canvas = canvas;
     const gl = createWebGLContext(canvas);
     if (!gl) {
+      console.error('WebGL context creation failed');
       throw new Error('Failed to initialize WebGL');
     }
+    console.log('WebGL context created:', gl);
     this.gl = gl;
     this.initializePrograms();
   }
@@ -40,6 +43,7 @@ export class EffectProcessor {
       'pass-through': passThroughShader,
     };
 
+    console.log('Compiling shaders...');
     for (const [name, fragmentSource] of Object.entries(shaderMap)) {
       const program = compileShaderProgram(
         this.gl,
@@ -48,8 +52,12 @@ export class EffectProcessor {
       );
       if (program) {
         this.programs.set(name, program);
+        console.log(`✓ Shader compiled: ${name}`);
+      } else {
+        console.error(`✗ Failed to compile shader: ${name}`);
       }
     }
+    console.log(`Total shaders compiled: ${this.programs.size}/${Object.keys(shaderMap).length}`);
   }
 
   private renderPass(
@@ -128,17 +136,21 @@ export class EffectProcessor {
     effect: EffectType,
     intensity: number
   ): Promise<HTMLCanvasElement> {
+    console.log(`applyEffect called: effect=${effect}, intensity=${intensity}, image=${image.width}x${image.height}`);
     const gl = this.gl;
 
     // Set canvas size to match image
     this.canvas.width = image.width;
     this.canvas.height = image.height;
+    console.log(`Canvas resized to: ${this.canvas.width}x${this.canvas.height}`);
 
     // Create initial texture from image
     let currentTexture = createTexture(gl, image);
     if (!currentTexture) {
+      console.error('Failed to create texture from image');
       throw new Error('Failed to create texture from image');
     }
+    console.log('Initial texture created');
 
     const resolution = [image.width, image.height];
     const normalizedIntensity = intensity / 100;
@@ -183,6 +195,7 @@ export class EffectProcessor {
     }
 
     // Final render to canvas
+    console.log('Rendering final result to canvas');
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     const finalProgram = this.programs.get('pass-through');
     if (finalProgram) {
@@ -193,8 +206,12 @@ export class EffectProcessor {
       gl.uniform1i(gl.getUniformLocation(finalProgram, 'u_image'), 0);
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      console.log('Final render complete');
+    } else {
+      console.error('Pass-through program not found!');
     }
 
+    console.log('Returning canvas:', this.canvas);
     return this.canvas;
   }
 
