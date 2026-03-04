@@ -100,12 +100,13 @@ export default function Home() {
     if (
       !uploadedImage ||
       !processorRef.current ||
-      !canvasRef.current ||
-      isProcessing
+      !canvasRef.current
     ) {
+      console.log('Skipping process:', { uploadedImage: !!uploadedImage, processor: !!processorRef.current, canvas: !!canvasRef.current });
       return;
     }
 
+    console.log('Starting processing:', { effect: selectedEffect, intensity });
     setIsProcessing(true);
     try {
       const result = await processorRef.current.applyEffect(
@@ -113,21 +114,22 @@ export default function Home() {
         selectedEffect,
         intensity
       );
+      console.log('Processing complete, canvas:', result);
       setProcessedCanvas(result);
     } catch (err) {
       setError('Failed to process image. Please try again.');
-      console.error(err);
+      console.error('Processing error:', err);
     } finally {
       setIsProcessing(false);
     }
-  }, [uploadedImage, selectedEffect, intensity, isProcessing]);
+  }, [uploadedImage, selectedEffect, intensity]);
 
   // Auto-process when effect or image changes
   useEffect(() => {
     if (uploadedImage && !isProcessing) {
       processImage();
     }
-  }, [uploadedImage, selectedEffect]);
+  }, [uploadedImage, selectedEffect, processImage, isProcessing]);
 
   // Debounced intensity change
   useEffect(() => {
@@ -138,7 +140,7 @@ export default function Home() {
     }, 150); // Debounce for smooth slider
 
     return () => clearTimeout(timeout);
-  }, [intensity]);
+  }, [intensity, uploadedImage, isProcessing, processImage]);
 
   const handleReset = useCallback(() => {
     setUploadedImage(null);

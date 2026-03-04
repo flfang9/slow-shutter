@@ -10,6 +10,7 @@ import {
   vibranceShader,
   bloomShader,
   contrastCurveShader,
+  passThroughShader,
 } from './shaders';
 
 export class EffectProcessor {
@@ -36,6 +37,7 @@ export class EffectProcessor {
       'vibrance': vibranceShader,
       'bloom': bloomShader,
       'contrast-curve': contrastCurveShader,
+      'pass-through': passThroughShader,
     };
 
     for (const [name, fragmentSource] of Object.entries(shaderMap)) {
@@ -182,7 +184,7 @@ export class EffectProcessor {
 
     // Final render to canvas
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    const finalProgram = this.programs.get('contrast-curve');
+    const finalProgram = this.programs.get('pass-through');
     if (finalProgram) {
       gl.useProgram(finalProgram);
       setupQuad(gl, finalProgram);
