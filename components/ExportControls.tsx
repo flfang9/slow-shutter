@@ -44,26 +44,27 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
       <button
         onClick={handleDownload}
         className="w-full px-4 py-3 text-sm font-medium bg-white text-black
-                   rounded-lg transition-all hover:bg-white/90 active:scale-95"
+                   rounded-lg transition-all hover:bg-white/90 active:scale-[0.98]"
       >
         <Download className="inline mr-2 h-4 w-4" />
-        Save Image
+        Save
       </button>
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={handleShare}
           disabled={isSharing}
-          className="px-4 py-3 text-sm font-medium bg-white/5 hover:bg-white/10
-                     border border-white/10 rounded-lg backdrop-blur-xl transition-all
-                     disabled:opacity-50"
+          className="px-4 py-3 text-sm font-medium text-white/80
+                     border border-white/10 rounded-lg transition-all
+                     hover:bg-white/5 disabled:opacity-50 active:scale-[0.98]"
         >
           <Share2 className="inline mr-2 h-4 w-4" />
           Share
         </button>
         <button
           onClick={onReset}
-          className="px-4 py-3 text-sm font-medium bg-white/5 hover:bg-white/10
-                     border border-white/10 rounded-lg backdrop-blur-xl transition-all"
+          className="px-4 py-3 text-sm font-medium text-white/80
+                     border border-white/10 rounded-lg transition-all
+                     hover:bg-white/5 active:scale-[0.98]"
         >
           <RotateCcw className="inline mr-2 h-4 w-4" />
           New

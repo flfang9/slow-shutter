@@ -40,15 +40,31 @@ export function EffectSelector({
   onEffectSelect,
 }: EffectSelectorProps) {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {EFFECTS.map((effect) => (
-        <EffectCard
-          key={effect.id}
-          effect={effect}
-          selected={selectedEffect === effect.id}
-          onSelect={() => onEffectSelect(effect.id)}
-        />
-      ))}
-    </div>
+    <>
+      {/* Desktop: 2x2 grid */}
+      <div className="hidden md:grid grid-cols-2 gap-3">
+        {EFFECTS.map((effect) => (
+          <EffectCard
+            key={effect.id}
+            effect={effect}
+            selected={selectedEffect === effect.id}
+            onSelect={() => onEffectSelect(effect.id)}
+          />
+        ))}
+      </div>
+
+      {/* Mobile: horizontal scroller */}
+      <div className="md:hidden flex gap-3 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
+        {EFFECTS.map((effect) => (
+          <div key={effect.id} className="flex-shrink-0 w-24">
+            <EffectCard
+              effect={effect}
+              selected={selectedEffect === effect.id}
+              onSelect={() => onEffectSelect(effect.id)}
+            />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

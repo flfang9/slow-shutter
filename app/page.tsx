@@ -6,7 +6,6 @@ import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
 import { LensDial } from '@/components/LensDial';
-import { CompareButton } from '@/components/CompareButton';
 import { ImagePreview } from '@/components/ImagePreview';
 import { ExportControls } from '@/components/ExportControls';
 import { LoadingState } from '@/components/LoadingState';
@@ -30,7 +29,6 @@ export default function Home() {
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('cinematic-swirl');
   const [intensity, setIntensity] = useState(50);
   const [savedIntensity, setSavedIntensity] = useState(50);
-  const [isComparing, setIsComparing] = useState(false);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +38,6 @@ export default function Home() {
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
 
-  // Initialize processors
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
     if (!previewCanvasRef.current) previewCanvasRef.current = document.createElement('canvas');
@@ -49,7 +46,7 @@ export default function Home() {
       try {
         processorRef.current = new EffectProcessor(canvasRef.current);
       } catch (err) {
-        setError('Failed to initialize WebGL. Your browser may not support it.');
+        setError('Failed to initialize WebGL');
       }
     }
 
@@ -57,7 +54,7 @@ export default function Home() {
       try {
         previewProcessorRef.current = new EffectProcessor(previewCanvasRef.current);
       } catch (err) {
-        console.error('Failed to initialize preview processor');
+        console.error('Failed to initialize preview');
       }
     }
 
@@ -88,7 +85,6 @@ export default function Home() {
         finalImg = scaledImg;
       }
 
-      // Create preview image
       const MAX_PREVIEW_SIZE = 1000;
       const scale = Math.min(1, MAX_PREVIEW_SIZE / Math.max(finalImg.width, finalImg.height));
 
@@ -110,14 +106,13 @@ export default function Home() {
 
       setUploadedImage(finalImg);
     } catch (err) {
-      setError('Failed to load image. Please try another file.');
+      setError('Failed to load image');
       console.error(err);
     }
   }, []);
 
   const processPreview = useCallback(async () => {
-    if (!previewImage || !previewProcessorRef.current || !previewCanvasRef.current) return;
-
+    if (!previewImage || !previewProcessorRef.current) return;
     try {
       const result = await previewProcessorRef.current.applyEffect(
         previewImage,
@@ -126,20 +121,19 @@ export default function Home() {
       );
       setProcessedCanvas(result);
     } catch (err) {
-      console.error('Preview processing error:', err);
+      console.error('Preview error:', err);
     }
   }, [previewImage, selectedEffect, intensity]);
 
   const processFullQuality = useCallback(async () => {
-    if (!uploadedImage || !processorRef.current || !canvasRef.current || isProcessing) return;
-
+    if (!uploadedImage || !processorRef.current || isProcessing) return;
     setIsProcessing(true);
     try {
       const result = await processorRef.current.applyEffect(uploadedImage, selectedEffect, intensity);
       setProcessedCanvas(result);
     } catch (err) {
-      setError('Failed to process image. Please try again.');
-      console.error('Processing error:', err);
+      setError('Processing failed');
+      console.error(err);
     } finally {
       setIsProcessing(false);
     }
@@ -173,12 +167,10 @@ export default function Home() {
   const handleCompareStart = () => {
     setSavedIntensity(intensity);
     setIntensity(0);
-    setIsComparing(true);
   };
 
   const handleCompareEnd = () => {
     setIntensity(savedIntensity);
-    setIsComparing(false);
   };
 
   const handleReset = () => {
@@ -192,10 +184,10 @@ export default function Home() {
 
   return (
     <>
-      {/* Desktop Layout */}
+      {/* Desktop Layout - ZERO SCROLL */}
       <div className="hidden md:flex h-screen overflow-hidden">
-        {/* Canvas - 70% */}
-        <div className="w-[70%] relative bg-black flex items-center justify-center">
+        {/* Canvas - 70%, max-height 100vh */}
+        <div className="w-[70%] h-screen max-h-screen overflow-hidden relative bg-black flex items-center justify-center">
           {!uploadedImage && (
             <div className="max-w-md w-full px-8">
               <DropZone onFileSelect={handleFileSelect} />
@@ -208,14 +200,17 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
-              <ImagePreview canvas={processedCanvas} />
+              <ImagePreview
+                canvas={processedCanvas}
+                onPointerDown={handleCompareStart}
+                onPointerUp={handleCompareEnd}
+              />
             </>
           )}
         </div>
 
-        {/* Utility Sidebar - 30% */}
-        <div className="w-[30%] bg-[#080808] border-l border-white/10 flex flex-col overflow-y-auto">
-          {/* Logo */}
+        {/* Sidebar - 30% with border-l */}
+        <div className="w-[30%] h-screen bg-[#080808] border-l border-white/10 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-white/10">
             <h1 className="text-sm font-light tracking-[0.2em] text-white/80 uppercase">
               Slow Shutter
@@ -224,9 +219,8 @@ export default function Home() {
 
           {uploadedImage && (
             <div className="flex-1 p-6 space-y-6">
-              {/* Effects */}
               <div className="space-y-3">
-                <label className="text-xs font-medium tracking-wider text-white/50 uppercase">
+                <label className="text-xs font-medium tracking-wider text-white/50 uppercase block">
                   Effect
                 </label>
                 <EffectSelector
@@ -235,18 +229,8 @@ export default function Home() {
                 />
               </div>
 
-              {/* Intensity */}
-              <div className="space-y-3">
-                <LensDial value={intensity} onChange={setIntensity} />
-              </div>
+              <LensDial value={intensity} onChange={setIntensity} />
 
-              {/* Compare */}
-              <CompareButton
-                onCompareStart={handleCompareStart}
-                onCompareEnd={handleCompareEnd}
-              />
-
-              {/* Export */}
               <div className="pt-6 border-t border-white/10">
                 <ExportControls canvas={processedCanvas} onReset={handleReset} />
               </div>
@@ -255,12 +239,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Mobile Layout */}
-      <div className="md:hidden min-h-screen bg-black flex flex-col">
-        {/* Fixed Image Viewport */}
-        <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+      {/* Mobile Layout - Fixed image, glass tray */}
+      <div className="md:hidden h-screen overflow-hidden bg-black relative">
+        {/* Fixed Full-Screen Image */}
+        <div className="fixed inset-0 flex items-center justify-center">
           {!uploadedImage && (
-            <div className="max-w-md w-full px-4">
+            <div className="max-w-sm w-full px-4">
               <DropZone onFileSelect={handleFileSelect} />
             </div>
           )}
@@ -271,46 +255,44 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
-              <ImagePreview canvas={processedCanvas} />
+              <ImagePreview
+                canvas={processedCanvas}
+                onPointerDown={handleCompareStart}
+                onPointerUp={handleCompareEnd}
+              />
             </>
           )}
         </div>
 
-        {/* Floating Control Tray */}
+        {/* Glass Control Tray */}
         <AnimatePresence>
           {uploadedImage && (
             <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-[#080808]/95 backdrop-blur-xl
-                         border-t border-white/10 rounded-t-3xl p-6 pb-8 space-y-6"
+              className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-2xl
+                         border-t border-white/10 rounded-t-3xl safe-area-pb"
             >
-              <div className="w-12 h-1 bg-white/20 rounded-full mx-auto -mt-2" />
+              <div className="p-6 space-y-4">
+                {/* Handle */}
+                <div className="w-12 h-1 bg-white/20 rounded-full mx-auto -mt-2" />
 
-              <EffectSelector
-                selectedEffect={selectedEffect}
-                onEffectSelect={setSelectedEffect}
-              />
-
-              <LensDial value={intensity} onChange={setIntensity} />
-
-              <div className="grid grid-cols-2 gap-3">
-                <CompareButton
-                  onCompareStart={handleCompareStart}
-                  onCompareEnd={handleCompareEnd}
+                {/* Effects (horizontal scroll) */}
+                <EffectSelector
+                  selectedEffect={selectedEffect}
+                  onEffectSelect={setSelectedEffect}
                 />
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-3 text-sm font-medium bg-white/5 hover:bg-white/10
-                             border border-white/10 rounded-lg backdrop-blur-xl transition-all"
-                >
-                  New
-                </button>
-              </div>
 
-              <ExportControls canvas={processedCanvas} onReset={handleReset} />
+                {/* Slider */}
+                <LensDial value={intensity} onChange={setIntensity} />
+
+                {/* Actions - Save pinned to bottom */}
+                <div className="pt-2">
+                  <ExportControls canvas={processedCanvas} onReset={handleReset} />
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

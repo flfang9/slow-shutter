@@ -139,3 +139,18 @@ body::before {
   mix-blend-mode: overlay;
   z-index: 9999;
 }
+
+/* Hide scrollbars */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area bottom padding for mobile */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
