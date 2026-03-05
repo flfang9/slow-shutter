@@ -29,7 +29,7 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('cinematic-swirl');
-  const [intensity, setIntensity] = useState(50);
+  const [intensity, setIntensity] = useState(0);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -276,7 +276,7 @@ export default function Home() {
     setPreviewImage(null);
     setProcessedCanvas(null);
     setSelectedEffect('cinematic-swirl');
-    setIntensity(50);
+    setIntensity(0);
     setError(null);
     setDockMinimized(false);
   };
@@ -332,9 +332,9 @@ export default function Home() {
                 </div>
               )}
               <div className="w-full h-full p-8 flex items-center justify-center">
-                {processedCanvas && (
+                {(processedCanvas || (uploadedImage && intensity === 0)) && (
                   <img
-                    src={showingBefore && uploadedImage ? uploadedImage.src : processedCanvas.toDataURL('image/jpeg', 0.95)}
+                    src={showingBefore && uploadedImage ? uploadedImage.src : (intensity === 0 && uploadedImage ? uploadedImage.src : processedCanvas?.toDataURL('image/jpeg', 0.95) || '')}
                     alt="Processed"
                     className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
                     draggable={false}
@@ -421,7 +421,7 @@ export default function Home() {
 
         {/* Full-Screen Image Container - h-[100dvh] */}
         <div className="fixed inset-0 z-0 h-[100dvh] flex items-center bg-[#050505]">
-          {uploadedImage && processedCanvas && (
+          {uploadedImage && (processedCanvas || intensity === 0) && (
             <>
               {isProcessing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
@@ -431,7 +431,7 @@ export default function Home() {
 
 
               <img
-                src={showingBefore && uploadedImage ? uploadedImage.src : processedCanvas.toDataURL('image/jpeg', 0.95)}
+                src={showingBefore && uploadedImage ? uploadedImage.src : (intensity === 0 && uploadedImage ? uploadedImage.src : processedCanvas?.toDataURL('image/jpeg', 0.95) || '')}
                 alt="Processed"
                 className="w-full h-full object-contain transition-none select-none cursor-pointer"
                 draggable={false}
