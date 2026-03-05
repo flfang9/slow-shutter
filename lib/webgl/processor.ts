@@ -164,10 +164,10 @@ export class EffectProcessor {
     console.log('Initial texture created');
 
     const resolution = [image.width, image.height];
-    // Use exponential curve for better control at low intensities
-    // This makes 1% much more subtle and provides better range
+    // Use cubic curve for ultra-smooth low-end control
+    // This gives: 1% → 0.000001, 10% → 0.001, 50% → 0.125, 100% → 1.0
     const rawIntensity = intensity / 100;
-    const normalizedIntensity = rawIntensity * rawIntensity; // Quadratic curve
+    const normalizedIntensity = Math.pow(rawIntensity, 3); // Cubic curve
 
     // Track textures for cleanup
     const texturesToCleanup: WebGLTexture[] = [];

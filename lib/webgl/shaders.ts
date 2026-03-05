@@ -20,7 +20,7 @@ export const lateralMotionShader = `
 
   void main() {
     // If intensity is 0, return original image
-    if (u_intensity < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
@@ -64,7 +64,7 @@ export const verticalZoomShader = `
 
   void main() {
     // If intensity is 0, return original image
-    if (u_intensity < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
@@ -114,7 +114,7 @@ export const cinematicSwirlShader = `
 
   void main() {
     // If intensity is 0, return original image
-    if (u_intensity < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
@@ -191,7 +191,7 @@ export const handheldDriftShader = `
 
   void main() {
     // If intensity is 0, return original image
-    if (u_intensity < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
@@ -351,7 +351,7 @@ export const softLightShader = `
 
   void main() {
     // If intensity is 0, return original image
-    if (u_intensity < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
@@ -452,7 +452,7 @@ export const filmicGrainShader = `
 
   void main() {
     // If intensity is 0, return original image
-    if (u_intensity < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
