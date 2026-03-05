@@ -45,7 +45,6 @@ export default function Home() {
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const initialProcessingDone = useRef(false);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -114,13 +113,19 @@ export default function Home() {
       }
 
       setUploadedImage(finalImg);
+
+      // Process immediately after upload
+      setTimeout(() => {
+        processPreview();
+        setTimeout(processFullQuality, 300);
+      }, 100);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
       setError(`Upload failed: ${errorMessage}`);
       console.error('Upload error:', err);
       alert(`Upload failed: ${errorMessage}`);
     }
-  }, []);
+  }, [processPreview, processFullQuality]);
 
   const processPreview = useCallback(async () => {
     if (!previewImage || !previewProcessorRef.current) return;
@@ -151,16 +156,6 @@ export default function Home() {
       setIsProcessing(false);
     }
   }, [uploadedImage, selectedEffect, intensity, isProcessing]);
-
-  // Initial processing when image is first uploaded
-  useEffect(() => {
-    if (!uploadedImage || !previewImage || initialProcessingDone.current) return;
-
-    initialProcessingDone.current = true;
-    processPreview();
-    setTimeout(processFullQuality, 300);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedImage, previewImage]);
 
   useEffect(() => {
     if (previewImage) processPreview();
@@ -241,7 +236,6 @@ export default function Home() {
     setIntensity(50);
     setError(null);
     setDockMinimized(false);
-    initialProcessingDone.current = false; // Reset for next upload
   };
 
   const handleSliderDragStart = (e: React.PointerEvent) => {
