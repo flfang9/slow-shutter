@@ -473,8 +473,8 @@ export const lightTrailsShader = `
     vec4 original = texture2D(u_image, v_texCoord);
     float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    // Only create trails from bright areas (luminance masking)
-    float trailMask = smoothstep(0.5, 0.8, luminance);
+    // VERY aggressive luminance masking - ONLY bright lights create trails
+    float trailMask = smoothstep(0.7, 0.9, luminance);
 
     if (trailMask < 0.01) {
       gl_FragColor = original;
@@ -486,9 +486,9 @@ export const lightTrailsShader = `
     vec2 direction = vec2(cos(angleRad), sin(angleRad));
 
     // Number of echoes based on intensity (ensure at least 3)
-    int echoes = int(mix(3.0, 10.0, u_intensity));
+    int echoes = int(mix(5.0, 10.0, u_intensity));
     if (echoes < 3) echoes = 3;
-    float trailLength = mix(0.01, 0.05, u_intensity);
+    float trailLength = mix(0.02, 0.08, u_intensity); // Longer trails
 
     vec4 trailColor = vec4(0.0);
     float totalWeight = 0.0;
