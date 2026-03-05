@@ -1,5 +1,3 @@
-import heic2any from 'heic2any';
-
 const MAX_DIMENSION = 4000;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/heic', 'image/heif'];
 
@@ -36,8 +34,11 @@ export async function loadImage(file: File): Promise<HTMLImageElement> {
   const fileType = file.type.toLowerCase();
   const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || fileType === 'image/heic' || fileType === 'image/heif';
 
-  if (isHeic) {
+  if (isHeic && typeof window !== 'undefined') {
     try {
+      // Dynamic import to avoid SSR issues
+      const heic2any = (await import('heic2any')).default;
+
       const convertedBlob = await heic2any({
         blob: file,
         toType: 'image/jpeg',
