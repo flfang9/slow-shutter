@@ -282,13 +282,17 @@ export default function Home() {
           </div>
         )}
 
-        {/* Full-Screen Image Container - z-0 Layer (with space for dock) */}
-        <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505] relative">
-          {!uploadedImage && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
+        {/* Dropzone - Centered in Full Viewport */}
+        {!uploadedImage && (
+          <div className="fixed inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <div className="pointer-events-auto">
               <DropZone onFileSelect={handleFileSelect} />
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Full-Screen Image Container - z-0 Layer (with space for dock) */}
+        <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505] relative">
           {uploadedImage && processedCanvas && (
             <>
               {isProcessing && (
