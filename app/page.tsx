@@ -308,8 +308,8 @@ export default function Home() {
       const clampedX = Math.max(0, Math.min(1, x));
       const clampedY = Math.max(0, Math.min(1, y));
 
-      // WebGL texture coordinates have Y flipped (0,0 is bottom-left in texture space)
-      setSwirlCenter({ x: clampedX, y: 1.0 - clampedY });
+      // Invert both axes to match texture coordinate space
+      setSwirlCenter({ x: 1.0 - clampedX, y: 1.0 - clampedY });
 
       // Re-process with new center
       setTimeout(() => {
