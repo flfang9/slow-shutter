@@ -113,11 +113,6 @@ export default function Home() {
       }
 
       setUploadedImage(finalImg);
-
-      // Trigger processing by temporarily changing and restoring selectedEffect
-      const currentEffect = selectedEffect;
-      setSelectedEffect('lateral-motion');
-      setTimeout(() => setSelectedEffect(currentEffect), 10);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
       setError(`Upload failed: ${errorMessage}`);
