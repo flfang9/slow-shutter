@@ -150,6 +150,10 @@ export class EffectProcessor {
     intensity: number
   ): Promise<HTMLCanvasElement> {
     console.log(`applyEffect called: effect=${effect}, intensity=${intensity}, image=${image.width}x${image.height}`);
+
+    if (!image || !image.width || !image.height) {
+      throw new Error('Invalid image provided');
+    }
     const gl = this.gl;
 
     // Set canvas size to match image
@@ -177,6 +181,9 @@ export class EffectProcessor {
     // Step 1: Apply blur effect
     console.log(`Applying effect: ${effect} with intensity: ${normalizedIntensity}`);
     const effectProgram = this.programs.get(effect);
+    if (!effectProgram) {
+      throw new Error(`Effect "${effect}" not found or failed to compile`);
+    }
     if (effectProgram) {
       const oldTexture = currentTexture;
 

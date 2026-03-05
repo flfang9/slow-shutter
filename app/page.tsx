@@ -114,8 +114,10 @@ export default function Home() {
 
       setUploadedImage(finalImg);
     } catch (err) {
-      setError('Failed to load image');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
+      setError(`Upload failed: ${errorMessage}`);
+      console.error('Upload error:', err);
+      alert(`Upload failed: ${errorMessage}`);
     }
   }, []);
 
@@ -140,8 +142,10 @@ export default function Home() {
       const result = await processorRef.current.applyEffect(uploadedImage, selectedEffect, intensity);
       setProcessedCanvas(result);
     } catch (err) {
-      setError('Processing failed');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Processing failed';
+      setError(`Effect failed: ${errorMessage}`);
+      console.error('Processing error:', err);
+      alert(`Effect processing failed: ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
