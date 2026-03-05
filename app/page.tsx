@@ -29,7 +29,7 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('cinematic-swirl');
-  const [intensity, setIntensity] = useState(0);
+  const [intensity, setIntensity] = useState(50);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +54,11 @@ export default function Home() {
   // Keep refs in sync
   useEffect(() => { intensityRef.current = intensity; }, [intensity]);
   useEffect(() => { effectRef.current = selectedEffect; }, [selectedEffect]);
+
+  // Reset intensity to 50 when switching effects
+  useEffect(() => {
+    setIntensity(50);
+  }, [selectedEffect]);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -342,7 +347,7 @@ export default function Home() {
     setPreviewImage(null);
     setProcessedCanvas(null);
     setSelectedEffect('cinematic-swirl');
-    setIntensity(0);
+    setIntensity(50);
     setError(null);
     setDockMinimized(false);
   };

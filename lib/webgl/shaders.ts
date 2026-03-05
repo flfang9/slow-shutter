@@ -81,28 +81,30 @@ export const verticalZoomShader = `
       return;
     }
 
-    vec2 center = vec2(0.5, 0.0); // Bottom center
+    vec2 center = vec2(0.5, 0.5); // Center of image for radial zoom
     vec2 direction = v_texCoord - center;
+    float distance = length(direction);
 
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(8.0, 25.0, u_intensity));
-    float strength = mix(0.02, 0.15, u_intensity);
+    int samples = int(mix(8.0, 30.0, u_intensity));
+    float strength = mix(0.015, 0.10, u_intensity);
 
-    // Gradient mask - stronger at top, subtle at bottom
-    float gradient = v_texCoord.y;
-    strength *= gradient;
-
-    for (int i = 0; i < 25; i++) {
+    // Radial zoom blur - sample along the line from center
+    for (int i = 0; i < 30; i++) {
       if (i >= samples) break;
 
       float t = float(i) / float(samples - 1);
+      // Zoom out effect - sample from center outward
       vec2 offset = direction * t * strength;
       vec2 sampleCoord = v_texCoord - offset;
 
       vec4 sample = texture2D(u_image, sampleCoord);
-      float weight = 1.0 - t * 0.3; // Fade outer samples
+
+      // Weight based on distance - stronger effect farther from center
+      float distanceWeight = smoothstep(0.0, 0.5, distance);
+      float weight = (1.0 - t * 0.3) * mix(0.5, 1.0, distanceWeight);
 
       color += sample * weight;
       total += weight;
