@@ -65,10 +65,10 @@ export function EffectSelector({
         ))}
       </div>
 
-      {/* Mobile: horizontal scroller */}
-      <div className="md:hidden flex gap-3 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
+      {/* Mobile: horizontal scroller with snap */}
+      <div className="md:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide">
         {EFFECTS.map((effect) => (
-          <div key={effect.id} className="flex-shrink-0 w-24">
+          <div key={effect.id} className="snap-center">
             <EffectCard
               effect={effect}
               selected={selectedEffect === effect.id}

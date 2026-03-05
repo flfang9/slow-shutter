@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, useDragControls, PanInfo } from 'framer-motion';
 import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
@@ -23,6 +23,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+const DRAWER_HEIGHTS = {
+  minimized: 80,
+  active: 300,
+};
+
 export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
@@ -32,11 +37,13 @@ export default function Home() {
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
+  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -182,12 +189,23 @@ export default function Home() {
     setError(null);
   };
 
+  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const velocity = info.velocity.y;
+    const offset = info.offset.y;
+
+    if (velocity > 500 || offset < -50) {
+      setDrawerOpen(true);
+    } else if (velocity < -500 || offset > 50) {
+      setDrawerOpen(false);
+    }
+  };
+
   return (
     <>
-      {/* Desktop Layout - ZERO SCROLL */}
+      {/* Desktop Layout - ZERO SHIFT */}
       <div className="hidden md:flex h-screen overflow-hidden">
-        {/* Canvas - 70%, max-height 100vh */}
-        <div className="w-[70%] h-screen max-h-screen overflow-hidden relative bg-black flex items-center justify-center">
+        {/* Image Container - LEFT 70% */}
+        <div className="w-[70%] h-screen overflow-hidden flex items-center justify-center bg-[#050505]">
           {!uploadedImage && (
             <div className="max-w-md w-full px-8">
               <DropZone onFileSelect={handleFileSelect} />
@@ -200,16 +218,24 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
-              <ImagePreview
-                canvas={processedCanvas}
-                onPointerDown={handleCompareStart}
-                onPointerUp={handleCompareEnd}
-              />
+              <div className="w-full h-full p-8 flex items-center justify-center">
+                {processedCanvas && (
+                  <img
+                    src={processedCanvas.toDataURL('image/jpeg', 0.95)}
+                    alt="Processed"
+                    className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
+                    draggable={false}
+                    onPointerDown={handleCompareStart}
+                    onPointerUp={handleCompareEnd}
+                    onPointerLeave={handleCompareEnd}
+                  />
+                )}
+              </div>
             </>
           )}
         </div>
 
-        {/* Sidebar - 30% with border-l */}
+        {/* Sidebar - RIGHT 30% */}
         <div className="w-[30%] h-screen bg-[#080808] border-l border-white/10 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-white/10">
             <h1 className="text-sm font-light tracking-[0.2em] text-white/80 uppercase">
@@ -239,63 +265,94 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Mobile Layout - Fixed image, glass tray */}
+      {/* Mobile Layout - DRAGGABLE DRAWER */}
       <div className="md:hidden h-screen overflow-hidden bg-black relative">
         {/* Fixed Full-Screen Image */}
-        <div className="fixed inset-0 flex items-center justify-center">
+        <div className="fixed inset-0 flex items-center justify-center bg-[#050505]">
           {!uploadedImage && (
-            <div className="max-w-sm w-full px-4">
+            <div className="max-w-sm w-full px-4 z-10">
               <DropZone onFileSelect={handleFileSelect} />
             </div>
           )}
-          {uploadedImage && (
+          {uploadedImage && processedCanvas && (
             <>
               {isProcessing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
                   <LoadingState />
                 </div>
               )}
-              <ImagePreview
-                canvas={processedCanvas}
+              <img
+                src={processedCanvas.toDataURL('image/jpeg', 0.95)}
+                alt="Processed"
+                className="max-h-[90vh] max-w-[95%] object-contain transition-none cursor-pointer select-none"
+                draggable={false}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
+                onPointerLeave={handleCompareEnd}
               />
             </>
           )}
         </div>
 
-        {/* Glass Control Tray */}
-        <AnimatePresence>
-          {uploadedImage && (
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-2xl
-                         border-t border-white/10 rounded-t-3xl safe-area-pb"
-            >
-              <div className="p-6 space-y-4">
-                {/* Handle */}
-                <div className="w-12 h-1 bg-white/20 rounded-full mx-auto -mt-2" />
+        {/* Draggable Control Drawer */}
+        {uploadedImage && (
+          <motion.div
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.1}
+            onDragEnd={handleDragEnd}
+            animate={{
+              y: drawerOpen ? -DRAWER_HEIGHTS.active : -DRAWER_HEIGHTS.minimized,
+            }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="mobile-drawer fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-2xl
+                       border-t border-white/10 rounded-t-3xl touch-none"
+            style={{ height: DRAWER_HEIGHTS.active + 100 }}
+          >
+            {/* Handle */}
+            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-4" />
 
-                {/* Effects (horizontal scroll) */}
+            {/* Minimized State - Just Save Button */}
+            {!drawerOpen && (
+              <div className="px-6">
+                <button
+                  onClick={() => {
+                    if (!processedCanvas) return;
+                    processedCanvas.toBlob((blob) => {
+                      if (!blob) return;
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `slow-shutter-${Date.now()}.jpg`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }, 'image/jpeg', 0.95);
+                  }}
+                  className="w-full px-4 py-3 text-sm font-medium bg-white text-black
+                             rounded-lg transition-all active:scale-[0.98]"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+
+            {/* Active State - Full Controls */}
+            {drawerOpen && (
+              <div className="px-6 pb-8 space-y-4">
                 <EffectSelector
                   selectedEffect={selectedEffect}
                   onEffectSelect={setSelectedEffect}
                 />
 
-                {/* Slider */}
                 <LensDial value={intensity} onChange={setIntensity} />
 
-                {/* Actions - Save pinned to bottom */}
                 <div className="pt-2">
                   <ExportControls canvas={processedCanvas} onReset={handleReset} />
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </motion.div>
+        )}
       </div>
 
       {/* Error Dialog */}

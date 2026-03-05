@@ -1,9 +1,8 @@
 'use client';
 
 import { Download, Share2, RotateCcw } from 'lucide-react';
-import { Button } from './ui/button';
-import { downloadCanvas, shareCanvas } from '@/lib/image-utils';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface ExportControlsProps {
   canvas: HTMLCanvasElement | null;
@@ -15,27 +14,73 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
 
   const handleDownload = () => {
     if (!canvas) return;
-    const timestamp = new Date().getTime();
-    downloadCanvas(canvas, `slow-shutter-${timestamp}.jpg`);
+
+    // Direct browser download
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slow-shutter-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Image saved');
+    }, 'image/jpeg', 0.95);
   };
 
   const handleShare = async () => {
     if (!canvas) return;
 
-    if (!navigator.share) {
-      // Fallback to download if share is not supported
-      handleDownload();
+    // Mobile: Use native share sheet
+    if (navigator.share && navigator.canShare) {
+      setIsSharing(true);
+      try {
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+          }, 'image/jpeg', 0.95);
+        });
+
+        const file = new File([blob], `slow-shutter-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+        });
+
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Slow Shutter',
+          });
+          toast.success('Shared successfully');
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          toast.error('Share failed');
+        }
+      } finally {
+        setIsSharing(false);
+      }
       return;
     }
 
-    setIsSharing(true);
+    // Desktop: Copy image to clipboard
     try {
-      const timestamp = new Date().getTime();
-      await shareCanvas(canvas, `slow-shutter-${timestamp}.jpg`);
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/png');
+      });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob }),
+      ]);
+
+      toast.success('Image copied to clipboard');
     } catch (error) {
-      console.error('Share failed:', error);
-    } finally {
-      setIsSharing(false);
+      toast.error('Failed to copy image');
     }
   };
 

@@ -1,13 +1,13 @@
 'use client';
 
 import { Effect } from '@/types';
-import { MoveRight, RefreshCw, Maximize, TrendingUp, Sparkles, Film } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film } from 'lucide-react';
 
 const EFFECT_ICONS = {
   'lateral-motion': MoveRight,
   'vertical-zoom': Maximize,
-  'handheld-drift': TrendingUp,
-  'cinematic-swirl': RefreshCw,
+  'handheld-drift': Wind,
+  'cinematic-swirl': RotateCw,
   'soft-light': Sparkles,
   'film-grain': Film,
 };
@@ -24,34 +24,21 @@ export function EffectCard({ effect, selected, onSelect }: EffectCardProps) {
   return (
     <button
       onClick={onSelect}
-      className={`group relative aspect-square overflow-hidden rounded-lg
-                  bg-white/5 backdrop-blur-xl transition-all
+      className={`flex-shrink-0 w-[60px] h-[60px] rounded-lg flex flex-col items-center justify-center
+                  backdrop-blur-xl transition-all
                   ${selected
-                    ? 'ring-2 ring-white shadow-lg shadow-white/20'
-                    : 'ring-1 ring-white/10 hover:ring-white/30'
+                    ? 'border border-white bg-white/10'
+                    : 'border border-white/10 hover:border-white/30'
                   }`}
     >
-      {/* Icon */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Icon className={`w-8 h-8 transition-colors ${
-          selected ? 'text-white/80' : 'text-white/30 group-hover:text-white/50'
-        }`} />
-      </div>
-
-      {/* Label */}
-      <div className="absolute inset-0 flex items-end p-3">
-        <div className="w-full">
-          <h3 className={`text-[10px] font-medium tracking-wider uppercase transition-colors
-                         ${selected ? 'text-white' : 'text-white/60 group-hover:text-white/80'}`}>
-            {effect.name}
-          </h3>
-        </div>
-      </div>
-
-      {/* Selected indicator */}
-      {selected && (
-        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-white shadow-lg shadow-white/50" />
-      )}
+      <Icon className={`w-5 h-5 mb-1 transition-colors ${
+        selected ? 'text-white' : 'text-white/50'
+      }`} />
+      <span className={`text-[8px] font-medium tracking-wider uppercase transition-colors ${
+        selected ? 'text-white' : 'text-white/40'
+      }`}>
+        {effect.name.split(' ')[0]}
+      </span>
     </button>
   );
 }
