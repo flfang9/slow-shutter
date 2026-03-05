@@ -374,6 +374,7 @@ export const contrastCurveShader = `
 `;
 
 // Soft Light - Halation + edge glow (Film stock light bleed)
+// Soft Light / Dream Bloom - Vintage diffusion filter
 export const softLightShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -382,85 +383,81 @@ export const softLightShader = `
   varying vec2 v_texCoord;
 
   void main() {
+    vec4 original = texture2D(u_image, v_texCoord);
+
     if (u_intensity < 0.00001) {
-      gl_FragColor = texture2D(u_image, v_texCoord);
+      gl_FragColor = original;
       return;
     }
 
-    vec4 original = texture2D(u_image, v_texCoord);
-    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
-
-    // Edge detection (Sobel operator) to find bright-to-dark transitions
     vec2 pixelSize = 1.0 / u_resolution;
-    float edgeStrength = 0.0;
 
-    // Sample surrounding pixels for edge detection
-    float tl = dot(texture2D(u_image, v_texCoord + vec2(-pixelSize.x, pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
-    float t  = dot(texture2D(u_image, v_texCoord + vec2(0.0, pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
-    float tr = dot(texture2D(u_image, v_texCoord + vec2(pixelSize.x, pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
-    float l  = dot(texture2D(u_image, v_texCoord + vec2(-pixelSize.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-    float r  = dot(texture2D(u_image, v_texCoord + vec2(pixelSize.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-    float bl = dot(texture2D(u_image, v_texCoord + vec2(-pixelSize.x, -pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
-    float b  = dot(texture2D(u_image, v_texCoord + vec2(0.0, -pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
-    float br = dot(texture2D(u_image, v_texCoord + vec2(pixelSize.x, -pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
+    // === STEP 1: Create bloom layer from bright areas (luminance > 0.65) ===
+    vec4 bloomLayer = vec4(0.0);
+    float totalWeight = 0.0;
 
-    float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
-    float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
-    edgeStrength = length(vec2(gx, gy));
+    // Heavy Gaussian-like blur (simulated with multi-ring sampling)
+    // Blur radius scales with intensity: 20px to 50px equivalent
+    float blurRadius = mix(0.02, 0.06, u_intensity);
 
-    // Only apply halation at edges where bright meets dark
-    float isEdge = smoothstep(0.1, 0.3, edgeStrength);
-    float isBright = smoothstep(0.4, 0.7, luminance);
-    float halationMask = isEdge * isBright;
+    // Sample in concentric rings for Gaussian approximation
+    for (int ring = 0; ring < 4; ring++) {
+      float ringRadius = blurRadius * (float(ring) + 1.0) / 4.0;
+      float ringWeight = 1.0 - float(ring) * 0.2; // Gaussian falloff
 
-    // Red-tinted halation glow (film stock light bleed)
-    vec4 halationGlow = vec4(0.0);
-    if (halationMask > 0.1) {
-      float strength = mix(0.015, 0.08, u_intensity);
+      for (int i = 0; i < 12; i++) {
+        float angle = float(i) * 3.14159 * 2.0 / 12.0 + float(ring) * 0.3;
+        vec2 offset = vec2(cos(angle), sin(angle)) * ringRadius;
 
-      // Very soft red-orange blur
-      int samples = 16;
-      for (int i = 0; i < 16; i++) {
-        float angle = float(i) * 3.14159 * 2.0 / 16.0;
-        float radius = strength * 2.5;
+        vec4 sampleColor = texture2D(u_image, v_texCoord + offset);
+        float sampleLum = dot(sampleColor.rgb, vec3(0.299, 0.587, 0.114));
 
-        vec2 offset = vec2(cos(angle), sin(angle)) * radius;
-        vec4 sample = texture2D(u_image, v_texCoord + offset);
+        // Luminance threshold: only keep pixels > 65% brightness
+        float brightMask = smoothstep(0.55, 0.75, sampleLum);
 
-        // Shift toward red/orange (film halation color)
-        sample.r *= 1.4;
-        sample.g *= 1.1;
-        sample.b *= 0.8;
-
-        halationGlow += sample;
+        // Add to bloom with Gaussian weight
+        bloomLayer += sampleColor * brightMask * ringWeight;
+        totalWeight += brightMask * ringWeight;
       }
-      halationGlow /= float(samples);
     }
 
-    // Standard bloom for bright areas
-    vec4 bloom = vec4(0.0);
-    float glowStrength = max(0.0, (luminance - 0.35) * 1.5);
+    // Also sample center
+    float centerLum = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+    float centerMask = smoothstep(0.55, 0.75, centerLum);
+    bloomLayer += original * centerMask * 1.5;
+    totalWeight += centerMask * 1.5;
 
-    if (glowStrength > 0.1) {
-      float strength = mix(0.03, 0.2, u_intensity);
-
-      // Multi-layer bloom
-      for (int i = 0; i < 20; i++) {
-        float angle = float(i) * 3.14159 * 2.0 / 20.0;
-        float radius = strength * 2.0;
-
-        vec2 offset = vec2(cos(angle), sin(angle)) * radius;
-        bloom += texture2D(u_image, v_texCoord + offset);
-      }
-      bloom /= 20.0;
+    // Normalize bloom layer
+    if (totalWeight > 0.001) {
+      bloomLayer /= totalWeight;
+    } else {
+      bloomLayer = vec4(0.0);
     }
 
-    // Combine: original + bloom + halation
-    vec4 result = original;
-    result = mix(result, bloom, glowStrength * 0.6 * u_intensity);
-    result = mix(result, halationGlow, halationMask * 0.8 * u_intensity);
+    // === STEP 2: Screen blend mode ===
+    // Screen: 1 - (1 - base) * (1 - blend)
+    // Glow opacity: 0% to 80% based on intensity
+    float glowOpacity = u_intensity * 0.8;
 
-    gl_FragColor = result;
+    vec3 screenBlend = 1.0 - (1.0 - original.rgb) * (1.0 - bloomLayer.rgb * glowOpacity);
+
+    // === STEP 3: IG Polish - reduce contrast and add warmth ===
+    vec3 result = screenBlend;
+
+    // Reduce contrast by 10% (pull toward mid-gray)
+    float contrastReduction = 0.10 * u_intensity;
+    result = mix(result, vec3(0.5), contrastReduction);
+
+    // Add warmth (+5%): boost reds/yellows, reduce blues
+    float warmth = 0.05 * u_intensity;
+    result.r += warmth * 0.8;
+    result.g += warmth * 0.4;
+    result.b -= warmth * 0.3;
+
+    // Slight lift to shadows for dreamy look
+    result = mix(result, sqrt(result), 0.08 * u_intensity);
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
   }
 `;
 
