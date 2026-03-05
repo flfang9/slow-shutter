@@ -493,74 +493,86 @@ export const softLightShader = `
   }
 `;
 
-// Light Trails - Echoing/ghosting with luminance masking
+// Light Trails - Directional Accumulation with Chromatic Bleed
+// Simulates slow shutter light streaks with 10 echoes
 export const lightTrailsShader = `
   precision mediump float;
   uniform sampler2D u_image;
-  uniform float u_intensity;
+  uniform float u_intensity;  // Controls trail length
   uniform vec2 u_resolution;
-  uniform float u_angle; // Trail direction in degrees
+  uniform float u_angle;      // Trail direction 0-360 degrees
   varying vec2 v_texCoord;
 
   void main() {
-    if (u_intensity < 0.00001) {
-      gl_FragColor = texture2D(u_image, v_texCoord);
-      return;
-    }
-
     vec4 original = texture2D(u_image, v_texCoord);
-    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    // VERY aggressive luminance masking - ONLY bright lights create trails
-    float trailMask = smoothstep(0.7, 0.9, luminance);
-
-    if (trailMask < 0.01) {
+    if (u_intensity < 0.00001) {
       gl_FragColor = original;
       return;
     }
+
+    // === STEP 1: Create Heat Map (only brightest pixels > 80%) ===
+    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
     // Convert angle to radians and calculate direction vector
     float angleRad = u_angle * 0.017453292519943295; // PI / 180
     vec2 direction = vec2(cos(angleRad), sin(angleRad));
 
-    // Number of echoes based on intensity (ensure at least 3)
-    int echoes = int(mix(5.0, 10.0, u_intensity));
-    if (echoes < 3) echoes = 3;
-    float trailLength = mix(0.02, 0.08, u_intensity); // Longer trails
+    // Aspect ratio correction for proper diagonal trails
+    vec2 aspectCorrection = vec2(1.0, u_resolution.x / u_resolution.y);
 
-    vec4 trailColor = vec4(0.0);
-    float totalWeight = 0.0;
+    // Trail length scales with intensity
+    float trailLength = mix(0.03, 0.15, u_intensity);
 
-    // Create echoing effect with decreasing opacity and positional offset
+    // === STEP 2: Directional Accumulation (10 echoes) ===
+    vec3 trailAccum = vec3(0.0);
+
+    // 10 echoes, each with 10% less opacity
     for (int i = 0; i < 10; i++) {
-      if (i >= echoes) break;
+      float t = float(i) / 9.0; // 0.0 to 1.0
 
-      float t = float(i) / max(float(echoes), 1.0);
+      // Echo opacity: 100%, 90%, 80%, ... 10%
+      float echoOpacity = 1.0 - t * 0.9;
 
-      // Exponential falloff for opacity (more realistic)
-      float opacity = exp(-t * 4.0);
-
-      // Positional offset along direction
-      vec2 offset = direction * t * trailLength;
+      // Offset position along trail direction
+      vec2 offset = direction * aspectCorrection * t * trailLength;
       vec4 sample = texture2D(u_image, v_texCoord + offset);
 
-      // Only contribute if sample is also bright (prevents muddy shadows)
+      // Only bright pixels contribute (luminance > 0.75)
       float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-      float sampleMask = smoothstep(0.5, 0.8, sampleLum);
+      float brightMask = smoothstep(0.70, 0.90, sampleLum);
 
-      float weight = opacity * sampleMask;
-      trailColor += sample * weight;
-      totalWeight += weight;
+      // === STEP 3: Chromatic Bleed (RGB Split) ===
+      // Start of trail: warm (original color)
+      // End of trail: cooler (shift toward cyan/blue)
+      vec3 chromaShift = sample.rgb;
+
+      // Progressive color shift: reduce red, boost blue/cyan at trail end
+      float chromaAmount = t * 0.4; // Max 40% shift at end
+      chromaShift.r *= 1.0 - chromaAmount * 0.5;  // Reduce red
+      chromaShift.g *= 1.0 + chromaAmount * 0.1;  // Slight green boost
+      chromaShift.b *= 1.0 + chromaAmount * 0.4;  // Boost blue/cyan
+
+      // Accumulate with opacity falloff
+      trailAccum += chromaShift * brightMask * echoOpacity;
     }
 
-    if (totalWeight > 0.0) {
-      trailColor /= totalWeight;
-    }
+    // Normalize by number of echoes
+    trailAccum /= 10.0;
 
-    // Blend trails with original based on trail mask
-    vec4 result = mix(original, trailColor, trailMask * u_intensity * 0.7);
+    // === STEP 4: Composite with Screen/Additive blend ===
+    // Screen blend: 1 - (1 - base) * (1 - blend)
+    // This preserves dark areas while adding glow
 
-    gl_FragColor = result;
+    float blendStrength = u_intensity * 1.2;
+    vec3 screenBlend = 1.0 - (1.0 - original.rgb) * (1.0 - trailAccum * blendStrength);
+
+    // Mix between original and screen blend based on trail presence
+    // Also add some direct additive for extra punch on bright trails
+    vec3 result = screenBlend;
+    result += trailAccum * u_intensity * 0.3; // Additive boost
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
   }
 `;
 

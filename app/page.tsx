@@ -547,14 +547,17 @@ export default function Home() {
         </div>
 
         {/* Collapsible HUD - z-10 Layer */}
+        {/* Ghost HUD (20% opacity) when adjusting Light Trails for better preview */}
         {uploadedImage && (
           <div
-            className={`fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10 transition-transform duration-300 ${
+            className={`fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10 transition-all duration-300 ${
               dockMinimized ? 'translate-y-[calc(100%-80px)]' : 'translate-y-0'
             }`}
             style={{
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
+              opacity: isDraggingSlider && selectedEffect === 'light-trails' ? 0.2 : 1,
+              transition: 'opacity 0.15s ease-out, transform 0.3s ease-out',
             }}
           >
             {/* Swipe Handle */}
