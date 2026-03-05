@@ -579,9 +579,14 @@ export default function Home() {
                 const handleEnd = () => {
                   document.removeEventListener('touchmove', handleMove);
                   document.removeEventListener('touchend', handleEnd);
+                  // Remove from active listeners
+                  const index = activeTouchListenersRef.current.indexOf(handleEnd);
+                  if (index > -1) activeTouchListenersRef.current.splice(index, 1);
                 };
                 document.addEventListener('touchmove', handleMove);
                 document.addEventListener('touchend', handleEnd);
+                // Track cleanup function for unmount
+                activeTouchListenersRef.current.push(handleEnd);
               }}
               onClick={() => setDockMinimized(!dockMinimized)}
             >

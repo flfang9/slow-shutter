@@ -36,6 +36,24 @@ export class EffectProcessor {
     this.gl = gl;
     this.initializePrograms();
     this.initializeBuffers();
+    this.setupContextLossHandling();
+  }
+
+  private setupContextLossHandling() {
+    this.canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost - preventing default behavior');
+    }, false);
+
+    this.canvas.addEventListener('webglcontextrestored', () => {
+      console.log('WebGL context restored - reinitializing');
+      try {
+        this.initializePrograms();
+        this.initializeBuffers();
+      } catch (err) {
+        console.error('Failed to restore WebGL context:', err);
+      }
+    }, false);
   }
 
   private initializeBuffers() {
