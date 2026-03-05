@@ -33,11 +33,16 @@ export default function Home() {
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dockMinimized, setDockMinimized] = useState(false);
+  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartIntensity, setDragStartIntensity] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
+  const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -181,6 +186,31 @@ export default function Home() {
     setSelectedEffect('cinematic-swirl');
     setIntensity(50);
     setError(null);
+    setDockMinimized(false);
+  };
+
+  const handleSliderDragStart = (e: React.PointerEvent) => {
+    setIsDraggingSlider(true);
+    setDragStartX(e.clientX);
+    setDragStartIntensity(intensity);
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
+    }
+  };
+
+  const handleSliderDragMove = (e: React.PointerEvent) => {
+    if (!isDraggingSlider) return;
+    const deltaX = e.clientX - dragStartX;
+    const percentChange = (deltaX / window.innerWidth) * 100;
+    const newIntensity = Math.max(0, Math.min(100, dragStartIntensity + percentChange));
+    setIntensity(Math.round(newIntensity));
+  };
+
+  const handleSliderDragEnd = () => {
+    setIsDraggingSlider(false);
+    fadeTimeoutRef.current = setTimeout(() => {
+      setIsDraggingSlider(false);
+    }, 500);
   };
 
   return (
@@ -291,8 +321,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Full-Screen Image Container - z-0 Layer (with space for dock) */}
-        <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505] relative">
+        {/* Full-Screen Image Container - h-[100dvh] */}
+        <div className="fixed inset-0 z-0 h-[100dvh] flex items-center bg-[#050505]">
           {uploadedImage && processedCanvas && (
             <>
               {isProcessing && (
@@ -300,12 +330,26 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
+
+              {/* Intensity Percentage Overlay */}
+              {isDraggingSlider && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                  <div className="text-8xl font-light text-white/60 transition-opacity duration-500">
+                    {intensity}%
+                  </div>
+                </div>
+              )}
+
               <img
                 src={processedCanvas.toDataURL('image/jpeg', 0.95)}
                 alt="Processed"
-                className="w-full h-full object-contain object-center transition-none select-none"
+                className="w-full h-full object-contain transition-none select-none"
                 draggable={false}
-                style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+                style={{
+                  touchAction: 'none',
+                  WebkitTouchCallout: 'none',
+                  objectPosition: 'center 35%',
+                }}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
                 onPointerLeave={handleCompareEnd}
@@ -317,98 +361,104 @@ export default function Home() {
           )}
         </div>
 
-        {/* Fixed Bottom Dock - z-10 Layer */}
+        {/* Collapsible HUD - z-10 Layer */}
         {uploadedImage && (
           <div
-            className="fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10"
+            className={`fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10 transition-transform duration-300 ${
+              dockMinimized ? 'translate-y-[calc(100%-80px)]' : 'translate-y-0'
+            }`}
             style={{
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
             }}
           >
-            <div className="px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
-              {/* Row 1: Effect Icons (Horizontal Scroll) */}
-              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
-                {[
-                  { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
-                  { id: 'vertical-zoom', icon: Maximize, label: 'Zoom' },
-                  { id: 'handheld-drift', icon: Wind, label: 'Drift' },
-                  { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
-                  { id: 'soft-light', icon: Sparkles, label: 'Light' },
-                  { id: 'film-grain', icon: Film, label: 'Grain' },
-                ].map((effect) => {
-                  const Icon = effect.icon;
-                  return (
-                    <button
-                      key={effect.id}
-                      onClick={() => setSelectedEffect(effect.id as EffectType)}
-                      className={`
-                        snap-center flex-shrink-0 w-[60px] h-[60px] rounded-lg
-                        border transition-all active:scale-95 flex flex-col items-center justify-center gap-0.5
-                        ${
-                          selectedEffect === effect.id
-                            ? 'border-white bg-white/10'
-                            : 'border-white/10 bg-white/5'
-                        }
-                      `}
-                    >
-                      <Icon
-                        className={`w-5 h-5 ${
-                          selectedEffect === effect.id ? 'text-white' : 'text-white/50'
-                        }`}
-                      />
-                      <span className={`text-[8px] font-medium uppercase tracking-wider ${
-                        selectedEffect === effect.id ? 'text-white' : 'text-white/40'
-                      }`}>
-                        {effect.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Swipe Handle */}
+            <div
+              className="flex justify-center py-2 cursor-pointer"
+              onPointerDown={(e) => {
+                const startY = e.clientY;
+                const handleMove = (moveEvent: PointerEvent) => {
+                  const deltaY = moveEvent.clientY - startY;
+                  if (deltaY > 50) setDockMinimized(true);
+                  else if (deltaY < -50) setDockMinimized(false);
+                };
+                const handleUp = () => {
+                  window.removeEventListener('pointermove', handleMove);
+                  window.removeEventListener('pointerup', handleUp);
+                };
+                window.addEventListener('pointermove', handleMove);
+                window.addEventListener('pointerup', handleUp);
+              }}
+            >
+              <div className="w-10 h-1 bg-white/30 rounded-full" />
+            </div>
 
-              {/* Row 2: Intensity Slider */}
-              <div className="px-2">
-                <LensDial value={intensity} onChange={setIntensity} />
-              </div>
+            {!dockMinimized && (
+              <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
+                {/* Row 1: Effect Icons */}
+                <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
+                  {[
+                    { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
+                    { id: 'vertical-zoom', icon: Maximize, label: 'Zoom' },
+                    { id: 'handheld-drift', icon: Wind, label: 'Drift' },
+                    { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
+                    { id: 'soft-light', icon: Sparkles, label: 'Light' },
+                    { id: 'film-grain', icon: Film, label: 'Grain' },
+                  ].map((effect) => {
+                    const Icon = effect.icon;
+                    return (
+                      <button
+                        key={effect.id}
+                        onClick={() => setSelectedEffect(effect.id as EffectType)}
+                        className={`
+                          snap-center flex-shrink-0 w-[60px] h-[60px] rounded-lg
+                          border transition-all active:scale-95 flex flex-col items-center justify-center gap-0.5
+                          ${
+                            selectedEffect === effect.id
+                              ? 'border-white bg-white/10'
+                              : 'border-white/10 bg-white/5'
+                          }
+                        `}
+                      >
+                        <Icon
+                          className={`w-5 h-5 ${
+                            selectedEffect === effect.id ? 'text-white' : 'text-white/50'
+                          }`}
+                        />
+                        <span className={`text-[8px] font-medium uppercase tracking-wider ${
+                          selectedEffect === effect.id ? 'text-white' : 'text-white/40'
+                        }`}>
+                          {effect.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-              {/* Row 3: Share | Save | New */}
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={async () => {
-                    if (!processedCanvas) return;
-                    // Mobile: Use native share sheet
-                    if (navigator.share && navigator.canShare) {
-                      try {
-                        const blob = await new Promise<Blob>((resolve) => {
-                          processedCanvas.toBlob((blob) => {
-                            if (blob) resolve(blob);
-                          }, 'image/jpeg', 0.95);
-                        });
-
-                        const file = new File([blob], `slow-shutter-${Date.now()}.jpg`, {
-                          type: 'image/jpeg',
-                        });
-
-                        if (navigator.canShare({ files: [file] })) {
-                          await navigator.share({
-                            files: [file],
-                            title: 'Slow Shutter',
-                          });
-                        }
-                      } catch (error: any) {
-                        if (error.name !== 'AbortError') {
-                          console.error('Share failed:', error);
-                        }
-                      }
-                    }
-                  }}
-                  className="px-4 py-3 text-sm font-medium text-white/40
-                             border border-white/10 rounded-lg transition-all
-                             active:bg-white/5 active:scale-[0.98]"
+                {/* Row 2: Gesture Slider Area */}
+                <div
+                  className="px-2 py-4 touch-none"
+                  onPointerDown={handleSliderDragStart}
+                  onPointerMove={handleSliderDragMove}
+                  onPointerUp={handleSliderDragEnd}
+                  onPointerLeave={handleSliderDragEnd}
                 >
-                  Share
-                </button>
+                  <div className="text-center text-xs text-white/40 mb-2">
+                    {intensity}%
+                  </div>
+                  <div className="h-0.5 bg-white/10 rounded-full">
+                    <div
+                      className="h-full bg-white rounded-full transition-all"
+                      style={{ width: `${intensity}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Always Visible: Save & New Buttons */}
+            <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-4 border-t border-white/10'}`}>
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => {
                     if (!processedCanvas) return;
