@@ -469,6 +469,20 @@ export default function Home() {
 
               <LensDial value={intensity} onChange={setIntensity} />
 
+              {/* Compare Button */}
+              <div className="pt-4">
+                <button
+                  onClick={() => setShowingBefore(!showingBefore)}
+                  className={`w-full px-4 py-3 text-sm font-medium rounded-lg border transition-all ${
+                    showingBefore
+                      ? 'bg-white text-black border-white'
+                      : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
+                  }`}
+                >
+                  {showingBefore ? 'Show Effect' : 'Show Original'}
+                </button>
+              </div>
+
               <div className="pt-6 border-t border-white/10">
                 <ExportControls canvas={processedCanvas} originalImage={uploadedImage} onReset={handleReset} />
               </div>
@@ -629,8 +643,24 @@ export default function Home() {
               </div>
             )}
 
+            {/* Always Visible: Compare Button */}
+            {!dockMinimized && (
+              <div className="px-4 pt-4 border-t border-white/10">
+                <button
+                  onClick={() => setShowingBefore(!showingBefore)}
+                  className={`w-full px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                    showingBefore
+                      ? 'bg-white text-black'
+                      : 'bg-white/10 text-white border border-white/20'
+                  }`}
+                >
+                  {showingBefore ? 'Show Effect' : 'Show Original'}
+                </button>
+              </div>
+            )}
+
             {/* Always Visible: Crop | Share | New Buttons */}
-            <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-4 border-t border-white/10'}`}>
+            <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-3'}`}>
               <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => setShowCropModal(true)}
