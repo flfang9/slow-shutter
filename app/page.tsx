@@ -26,6 +26,9 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(
     null
   );
+  const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(
+    null
+  ); // Scaled-down version for fast preview
   const [selectedEffect, setSelectedEffect] =
     useState<EffectType>('lateral-motion');
   const [intensity, setIntensity] = useState(50);
@@ -35,13 +38,19 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const processorRef = useRef<EffectProcessor | null>(null);
+  const previewProcessorRef = useRef<EffectProcessor | null>(null);
 
-  // Initialize canvas and processor
+  // Initialize canvas and processors (full-res and preview)
   useEffect(() => {
     if (!canvasRef.current) {
       canvasRef.current = document.createElement('canvas');
     }
+    if (!previewCanvasRef.current) {
+      previewCanvasRef.current = document.createElement('canvas');
+    }
+
     if (!processorRef.current) {
       try {
         processorRef.current = new EffectProcessor(canvasRef.current);
@@ -52,10 +61,22 @@ export default function Home() {
       }
     }
 
+    if (!previewProcessorRef.current) {
+      try {
+        previewProcessorRef.current = new EffectProcessor(previewCanvasRef.current);
+      } catch (err) {
+        console.error('Failed to initialize preview processor');
+      }
+    }
+
     return () => {
       if (processorRef.current) {
         processorRef.current.dispose();
         processorRef.current = null;
+      }
+      if (previewProcessorRef.current) {
+        previewProcessorRef.current.dispose();
+        previewProcessorRef.current = null;
       }
     };
   }, []);
@@ -89,6 +110,37 @@ export default function Home() {
         finalImg = scaledImg;
       }
 
+      // Create a lower-resolution preview image for real-time updates
+      const MAX_PREVIEW_SIZE = 1000;
+      const scale = Math.min(
+        1,
+        MAX_PREVIEW_SIZE / Math.max(finalImg.width, finalImg.height)
+      );
+
+      if (scale < 1) {
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = Math.floor(finalImg.width * scale);
+        previewCanvas.height = Math.floor(finalImg.height * scale);
+        const ctx = previewCanvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(
+            finalImg,
+            0,
+            0,
+            previewCanvas.width,
+            previewCanvas.height
+          );
+          const previewImg = new Image();
+          previewImg.src = previewCanvas.toDataURL();
+          await new Promise((resolve) => {
+            previewImg.onload = resolve;
+          });
+          setPreviewImage(previewImg);
+        }
+      } else {
+        setPreviewImage(finalImg);
+      }
+
       setUploadedImage(finalImg);
     } catch (err) {
       setError('Failed to load image. Please try another file.');
@@ -96,22 +148,41 @@ export default function Home() {
     }
   }, []);
 
-  const processImage = useCallback(async () => {
+  // Quick preview processing (low-res, instant)
+  const processPreview = useCallback(async () => {
+    if (
+      !previewImage ||
+      !previewProcessorRef.current ||
+      !previewCanvasRef.current
+    ) {
+      return;
+    }
+
+    try {
+      const result = await previewProcessorRef.current.applyEffect(
+        previewImage,
+        selectedEffect,
+        intensity
+      );
+      setProcessedCanvas(result);
+    } catch (err) {
+      console.error('Preview processing error:', err);
+    }
+  }, [previewImage, selectedEffect, intensity]);
+
+  // Full quality processing (high-res, for final result)
+  const processFullQuality = useCallback(async () => {
     if (
       !uploadedImage ||
       !processorRef.current ||
       !canvasRef.current ||
       isProcessing
     ) {
-      console.log('Skipping process:', { uploadedImage: !!uploadedImage, processor: !!processorRef.current, canvas: !!canvasRef.current, isProcessing });
       return;
     }
 
-    console.log('Starting processing:', { effect: selectedEffect, intensity });
+    console.log('Starting full quality processing:', { effect: selectedEffect, intensity });
     setIsProcessing(true);
-
-    // Small delay to allow state to update and prevent race conditions
-    await new Promise(resolve => setTimeout(resolve, 10));
 
     try {
       const result = await processorRef.current.applyEffect(
@@ -119,7 +190,7 @@ export default function Home() {
         selectedEffect,
         intensity
       );
-      console.log('Processing complete, canvas:', result);
+      console.log('Full quality processing complete');
       setProcessedCanvas(result);
     } catch (err) {
       setError('Failed to process image. Please try again.');
@@ -129,23 +200,40 @@ export default function Home() {
     }
   }, [uploadedImage, selectedEffect, intensity, isProcessing]);
 
-  // Auto-process when effect or image changes (immediate)
+  // Immediate preview when effect changes
   useEffect(() => {
-    if (uploadedImage && !isProcessing) {
-      processImage();
+    if (previewImage) {
+      processPreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedImage, selectedEffect]);
+  }, [selectedEffect, previewImage]);
 
-  // Debounced intensity change
+  // Full quality render after effect changes
   useEffect(() => {
     if (!uploadedImage) return;
 
     const timeout = setTimeout(() => {
-      if (!isProcessing) {
-        processImage();
-      }
-    }, 300); // Longer debounce to prevent glitching
+      processFullQuality();
+    }, 500);
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEffect]);
+
+  // Real-time preview on intensity change (instant)
+  useEffect(() => {
+    if (!previewImage) return;
+    processPreview(); // Instant preview
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intensity]);
+
+  // Full quality render after intensity stops changing
+  useEffect(() => {
+    if (!uploadedImage) return;
+
+    const timeout = setTimeout(() => {
+      processFullQuality();
+    }, 800); // Render full quality after user stops adjusting
 
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps

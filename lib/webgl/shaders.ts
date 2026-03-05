@@ -19,12 +19,18 @@ export const lateralMotionShader = `
   varying vec2 v_texCoord;
 
   void main() {
+    // If intensity is 0, return original image
+    if (u_intensity < 0.01) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
     vec4 color = vec4(0.0);
     float total = 0.0;
 
     // Number of samples based on intensity
     int samples = int(mix(8.0, 30.0, u_intensity));
-    float offset = mix(0.005, 0.03, u_intensity); // Increased from 0.001-0.005 to 0.005-0.03
+    float offset = mix(0.005, 0.03, u_intensity);
 
     for (int i = 0; i < 30; i++) {
       if (i >= samples) break;
@@ -57,6 +63,12 @@ export const verticalZoomShader = `
   varying vec2 v_texCoord;
 
   void main() {
+    // If intensity is 0, return original image
+    if (u_intensity < 0.01) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
     vec2 center = vec2(0.5, 0.0); // Bottom center
     vec2 direction = v_texCoord - center;
 
@@ -64,7 +76,7 @@ export const verticalZoomShader = `
     float total = 0.0;
 
     int samples = int(mix(8.0, 25.0, u_intensity));
-    float strength = mix(0.02, 0.15, u_intensity); // Increased from 0.01-0.08
+    float strength = mix(0.02, 0.15, u_intensity);
 
     // Gradient mask - stronger at top, subtle at bottom
     float gradient = v_texCoord.y;
@@ -101,6 +113,12 @@ export const cinematicSwirlShader = `
   }
 
   void main() {
+    // If intensity is 0, return original image
+    if (u_intensity < 0.01) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
     // Center point (can be slightly off-center for more dynamic look)
     vec2 center = vec2(0.5, 0.45);
     vec2 direction = v_texCoord - center;
@@ -172,11 +190,17 @@ export const handheldDriftShader = `
   }
 
   void main() {
+    // If intensity is 0, return original image
+    if (u_intensity < 0.01) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
     vec4 color = vec4(0.0);
     float total = 0.0;
 
     int samples = int(mix(8.0, 25.0, u_intensity));
-    float strength = mix(0.005, 0.025, u_intensity); // Increased from 0.001-0.004
+    float strength = mix(0.005, 0.025, u_intensity);
 
     // Diagonal drift direction with subtle randomization
     vec2 driftDir = normalize(vec2(1.0, 0.3));
