@@ -114,7 +114,10 @@ export default function Home() {
 
       setUploadedImage(finalImg);
 
-      // Process will happen via useEffect when uploadedImage changes
+      // Trigger processing by temporarily changing and restoring selectedEffect
+      const currentEffect = selectedEffect;
+      setSelectedEffect('lateral-motion');
+      setTimeout(() => setSelectedEffect(currentEffect), 10);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
       setError(`Upload failed: ${errorMessage}`);
@@ -152,15 +155,6 @@ export default function Home() {
       setIsProcessing(false);
     }
   }, [uploadedImage, selectedEffect, intensity, isProcessing]);
-
-  // Process on initial upload
-  useEffect(() => {
-    if (uploadedImage && previewImage && processedCanvas === null) {
-      processPreview();
-      setTimeout(processFullQuality, 300);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedImage, previewImage]);
 
   useEffect(() => {
     if (previewImage) processPreview();
