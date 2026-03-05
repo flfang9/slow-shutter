@@ -304,10 +304,12 @@ export default function Home() {
       const x = (clientX - bounds.rect.left - bounds.offsetX) / bounds.displayWidth;
       const y = (clientY - bounds.rect.top - bounds.offsetY) / bounds.displayHeight;
 
-      // Clamp to 0-1 range and set swirl center
+      // Clamp to 0-1 range
       const clampedX = Math.max(0, Math.min(1, x));
       const clampedY = Math.max(0, Math.min(1, y));
-      setSwirlCenter({ x: clampedX, y: clampedY });
+
+      // WebGL texture coordinates have Y flipped (0,0 is bottom-left in texture space)
+      setSwirlCenter({ x: clampedX, y: 1.0 - clampedY });
 
       // Re-process with new center
       setTimeout(() => {
