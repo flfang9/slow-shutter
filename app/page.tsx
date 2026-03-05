@@ -178,10 +178,27 @@ export default function Home() {
     }
   }, [uploadedImage, isProcessing, swirlCenter]);
 
+  // Process immediately when image is first uploaded
+  useEffect(() => {
+    if (previewImage) {
+      processPreviewImmediate(selectedEffect, intensity);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewImage]);
+
   useEffect(() => {
     if (previewImage) processPreviewImmediate(selectedEffect, intensity);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
+
+  // Process full quality when image is first uploaded
+  useEffect(() => {
+    if (uploadedImage) {
+      const timeout = setTimeout(() => processFullQuality(selectedEffect, intensity), 100);
+      return () => clearTimeout(timeout);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedImage]);
 
   useEffect(() => {
     if (!uploadedImage) return;
