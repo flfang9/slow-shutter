@@ -274,14 +274,14 @@ export default function Home() {
       </div>
 
       {/* Mobile Layout - Instagram-Style Dock */}
-      <div className="block md:hidden h-screen overflow-hidden bg-black relative">
+      <div className="block md:hidden h-[100dvh] overflow-hidden bg-black relative">
         {/* Full-Screen Image Container - z-0 Layer (with space for dock) */}
         <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505] relative">
           {/* Grid Background (Empty State) */}
           {!uploadedImage && <GridBackground />}
 
           {!uploadedImage && (
-            <div className="max-w-sm w-full px-4 z-10 relative">
+            <div className="flex items-center justify-center h-full z-10 relative">
               <DropZone onFileSelect={handleFileSelect} />
             </div>
           )}
@@ -311,7 +311,13 @@ export default function Home() {
 
         {/* Fixed Bottom Dock - z-10 Layer */}
         {uploadedImage && (
-          <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/40 backdrop-blur-xl border-t border-white/10">
+          <div
+            className="fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10"
+            style={{
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+            }}
+          >
             <div className="px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
               {/* Row 1: Effect Icons (Horizontal Scroll) */}
               <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
@@ -329,8 +335,8 @@ export default function Home() {
                       key={effect.id}
                       onClick={() => setSelectedEffect(effect.id as EffectType)}
                       className={`
-                        snap-center flex-shrink-0 w-[70px] h-[70px] rounded-lg
-                        border transition-all active:scale-95 flex flex-col items-center justify-center gap-1
+                        snap-center flex-shrink-0 w-[60px] h-[60px] rounded-lg
+                        border transition-all active:scale-95 flex flex-col items-center justify-center gap-0.5
                         ${
                           selectedEffect === effect.id
                             ? 'border-white bg-white/10'
@@ -343,7 +349,7 @@ export default function Home() {
                           selectedEffect === effect.id ? 'text-white' : 'text-white/50'
                         }`}
                       />
-                      <span className={`text-[9px] font-medium uppercase tracking-wider ${
+                      <span className={`text-[8px] font-medium uppercase tracking-wider ${
                         selectedEffect === effect.id ? 'text-white' : 'text-white/40'
                       }`}>
                         {effect.label}
@@ -389,9 +395,9 @@ export default function Home() {
                       }
                     }
                   }}
-                  className="px-4 py-3 text-sm font-medium text-white/80
+                  className="px-4 py-3 text-sm font-medium text-white/40
                              border border-white/10 rounded-lg transition-all
-                             hover:bg-white/5 active:scale-[0.98]"
+                             active:bg-white/5 active:scale-[0.98]"
                 >
                   Share
                 </button>
@@ -417,9 +423,9 @@ export default function Home() {
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-4 py-3 text-sm font-medium text-white/80
+                  className="px-4 py-3 text-sm font-medium text-white/40
                              border border-white/10 rounded-lg transition-all
-                             hover:bg-white/5 active:scale-[0.98]"
+                             active:bg-white/5 active:scale-[0.98]"
                 >
                   New
                 </button>

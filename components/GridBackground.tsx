@@ -9,14 +9,14 @@ export function GridBackground() {
   }));
 
   return (
-    <div className="absolute inset-0 overflow-hidden opacity-40">
-      <div className="grid grid-cols-6 md:grid-cols-10 gap-2 p-4 h-full auto-rows-[80px]">
+    <div className="absolute inset-0 overflow-hidden opacity-30 md:opacity-40">
+      <div className="grid grid-cols-2 md:grid-cols-10 gap-2 p-4 h-full auto-rows-[80px]">
         {gridItems.map((item) => (
           <div
             key={item.id}
             className={`
               rounded-lg overflow-hidden
-              ${item.span === 2 ? 'col-span-2 row-span-2' : 'col-span-1'}
+              ${item.span === 2 ? 'md:col-span-2 md:row-span-2' : 'col-span-1'}
             `}
             style={{
               background: `linear-gradient(${Math.random() * 360}deg,
