@@ -482,11 +482,12 @@ export const lightTrailsShader = `
     }
 
     // Convert angle to radians and calculate direction vector
-    float angleRad = radians(u_angle);
+    float angleRad = u_angle * 0.017453292519943295; // PI / 180
     vec2 direction = vec2(cos(angleRad), sin(angleRad));
 
-    // Number of echoes based on intensity
+    // Number of echoes based on intensity (ensure at least 3)
     int echoes = int(mix(3.0, 10.0, u_intensity));
+    echoes = max(echoes, 3);
     float trailLength = mix(0.01, 0.05, u_intensity);
 
     vec4 trailColor = vec4(0.0);
@@ -496,7 +497,7 @@ export const lightTrailsShader = `
     for (int i = 0; i < 10; i++) {
       if (i >= echoes) break;
 
-      float t = float(i) / float(echoes);
+      float t = float(i) / max(float(echoes), 1.0);
 
       // Exponential falloff for opacity (more realistic)
       float opacity = exp(-t * 4.0);
