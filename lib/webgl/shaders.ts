@@ -487,7 +487,7 @@ export const lightTrailsShader = `
 
     // Number of echoes based on intensity (ensure at least 3)
     int echoes = int(mix(3.0, 10.0, u_intensity));
-    echoes = max(echoes, 3);
+    if (echoes < 3) echoes = 3;
     float trailLength = mix(0.01, 0.05, u_intensity);
 
     vec4 trailColor = vec4(0.0);
