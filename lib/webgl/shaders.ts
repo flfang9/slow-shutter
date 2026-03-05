@@ -144,8 +144,14 @@ export const cinematicSwirlShader = `
     float zoomStrength = mix(0.01, 0.12, u_intensity);
     float rotationStrength = mix(0.0, 0.15, u_intensity);
 
-    // Subject preservation - keep center sharper
-    float centerFalloff = smoothstep(0.0, 0.3, distance);
+    // Subject preservation - keep center completely clear
+    // Inner radius: completely sharp, no blur
+    // Outer radius: full effect
+    float innerRadius = 0.08;  // Clear center zone
+    float outerRadius = 0.35;  // Full effect zone
+    float centerFalloff = smoothstep(innerRadius, outerRadius, distance);
+
+    // Apply falloff to both effects
     zoomStrength *= centerFalloff;
     rotationStrength *= centerFalloff;
 

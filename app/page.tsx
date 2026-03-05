@@ -308,8 +308,8 @@ export default function Home() {
       const clampedX = Math.max(0, Math.min(1, x));
       const clampedY = Math.max(0, Math.min(1, y));
 
-      // Invert both axes to match texture coordinate space
-      setSwirlCenter({ x: 1.0 - clampedX, y: 1.0 - clampedY });
+      // Only invert Y to match texture coordinate space (screen Y is inverted from texture Y)
+      setSwirlCenter({ x: clampedX, y: 1.0 - clampedY });
 
       // Re-process with new center
       setTimeout(() => {
