@@ -39,6 +39,7 @@ export default function Home() {
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartIntensity, setDragStartIntensity] = useState(0);
   const [showCropModal, setShowCropModal] = useState(false);
+  const [showingBefore, setShowingBefore] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -154,20 +155,21 @@ export default function Home() {
 
   useEffect(() => {
     if (!uploadedImage) return;
-    const timeout = setTimeout(processFullQuality, 500);
+    const timeout = setTimeout(processFullQuality, 300);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
 
   useEffect(() => {
     if (!previewImage) return;
-    processPreview();
+    const timeout = setTimeout(processPreview, 100);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
 
   useEffect(() => {
     if (!uploadedImage) return;
-    const timeout = setTimeout(processFullQuality, 800);
+    const timeout = setTimeout(processFullQuality, 1000);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
@@ -338,17 +340,9 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Intensity Percentage Overlay */}
-              {isDraggingSlider && (
-                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                  <div className="text-8xl font-light text-white/60 transition-opacity duration-500">
-                    {intensity}%
-                  </div>
-                </div>
-              )}
 
               <img
-                src={processedCanvas.toDataURL('image/jpeg', 0.95)}
+                src={showingBefore && uploadedImage ? uploadedImage.src : processedCanvas.toDataURL('image/jpeg', 0.95)}
                 alt="Processed"
                 className="w-full h-full object-contain transition-none select-none"
                 draggable={false}
@@ -460,6 +454,22 @@ export default function Home() {
                       style={{ width: `${intensity}%` }}
                     />
                   </div>
+                </div>
+
+                {/* Before/After Toggle */}
+                <div className="px-4">
+                  <button
+                    onPointerDown={() => setShowingBefore(true)}
+                    onPointerUp={() => setShowingBefore(false)}
+                    onPointerLeave={() => setShowingBefore(false)}
+                    onTouchStart={() => setShowingBefore(true)}
+                    onTouchEnd={() => setShowingBefore(false)}
+                    className="w-full py-2 text-xs font-medium text-white/60
+                               border border-white/10 rounded-lg transition-all
+                               active:bg-white/10 active:text-white"
+                  >
+                    {showingBefore ? 'Showing Before' : 'Hold to Compare'}
+                  </button>
                 </div>
               </div>
             )}
