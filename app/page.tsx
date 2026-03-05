@@ -30,7 +30,6 @@ export default function Home() {
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('cinematic-swirl');
   const [intensity, setIntensity] = useState(50);
-  const [savedIntensity, setSavedIntensity] = useState(50);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,13 +173,46 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
 
+  // Keyboard shortcut: Hold spacebar to show before (desktop)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && uploadedImage) {
+        e.preventDefault();
+        setShowingBefore(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && uploadedImage) {
+        e.preventDefault();
+        setShowingBefore(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [uploadedImage]);
+
+  // Mobile: Tap to toggle, Desktop: Click and hold to show before
+  const handleImageClick = (e: React.MouseEvent | React.TouchEvent) => {
+    // On mobile (touch events), toggle
+    if ('touches' in e) {
+      setShowingBefore(!showingBefore);
+    }
+    // On desktop, ignore click (we use pointerdown/up for hold behavior)
+  };
+
   const handleCompareStart = () => {
-    setSavedIntensity(intensity);
-    setIntensity(0);
+    setShowingBefore(true);
   };
 
   const handleCompareEnd = () => {
-    setIntensity(savedIntensity);
+    setShowingBefore(false);
   };
 
   const handleReset = () => {
@@ -246,7 +278,7 @@ export default function Home() {
               <div className="w-full h-full p-8 flex items-center justify-center">
                 {processedCanvas && (
                   <img
-                    src={processedCanvas.toDataURL('image/jpeg', 0.95)}
+                    src={showingBefore && uploadedImage ? uploadedImage.src : processedCanvas.toDataURL('image/jpeg', 0.95)}
                     alt="Processed"
                     className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
                     draggable={false}
@@ -344,18 +376,17 @@ export default function Home() {
               <img
                 src={showingBefore && uploadedImage ? uploadedImage.src : processedCanvas.toDataURL('image/jpeg', 0.95)}
                 alt="Processed"
-                className="w-full h-full object-contain transition-none select-none"
+                className="w-full h-full object-contain transition-none select-none cursor-pointer"
                 draggable={false}
                 style={{
                   touchAction: 'none',
                   WebkitTouchCallout: 'none',
                   objectPosition: 'center 35%',
                 }}
+                onClick={handleImageClick}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
                 onPointerLeave={handleCompareEnd}
-                onTouchStart={handleCompareStart}
-                onTouchEnd={handleCompareEnd}
                 onContextMenu={(e) => e.preventDefault()}
               />
             </>
@@ -454,22 +485,6 @@ export default function Home() {
                       style={{ width: `${intensity}%` }}
                     />
                   </div>
-                </div>
-
-                {/* Before/After Toggle */}
-                <div className="px-4">
-                  <button
-                    onPointerDown={() => setShowingBefore(true)}
-                    onPointerUp={() => setShowingBefore(false)}
-                    onPointerLeave={() => setShowingBefore(false)}
-                    onTouchStart={() => setShowingBefore(true)}
-                    onTouchEnd={() => setShowingBefore(false)}
-                    className="w-full py-2 text-xs font-medium text-white/60
-                               border border-white/10 rounded-lg transition-all
-                               active:bg-white/10 active:text-white"
-                  >
-                    {showingBefore ? 'Showing Before' : 'Hold to Compare'}
-                  </button>
                 </div>
               </div>
             )}
