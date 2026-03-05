@@ -164,7 +164,8 @@ export default function Home() {
       const result = await processorRef.current.applyEffect(
         uploadedImage,
         effectOverride ?? effectRef.current,
-        intensityOverride ?? intensityRef.current
+        intensityOverride ?? intensityRef.current,
+        { swirlCenter }
       );
       setProcessedCanvas(result);
     } catch (err) {
@@ -175,7 +176,7 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
     }
-  }, [uploadedImage, isProcessing]);
+  }, [uploadedImage, isProcessing, swirlCenter]);
 
   useEffect(() => {
     if (previewImage) processPreviewImmediate(selectedEffect, intensity);

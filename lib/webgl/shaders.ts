@@ -118,6 +118,7 @@ export const cinematicSwirlShader = `
   uniform sampler2D u_image;
   uniform float u_intensity;
   uniform vec2 u_resolution;
+  uniform vec2 u_swirlCenter; // Center point for swirl
   varying vec2 v_texCoord;
 
   float random(vec2 co) {
@@ -131,8 +132,8 @@ export const cinematicSwirlShader = `
       return;
     }
 
-    // Center point (can be slightly off-center for more dynamic look)
-    vec2 center = vec2(0.5, 0.45);
+    // Center point (from user tap or default)
+    vec2 center = u_swirlCenter;
     vec2 direction = v_texCoord - center;
     float distance = length(direction);
 

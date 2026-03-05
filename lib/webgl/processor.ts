@@ -147,7 +147,8 @@ export class EffectProcessor {
   public async applyEffect(
     image: HTMLImageElement,
     effect: EffectType,
-    intensity: number
+    intensity: number,
+    options?: { swirlCenter?: { x: number; y: number } }
   ): Promise<HTMLCanvasElement> {
     console.log(`applyEffect called: effect=${effect}, intensity=${intensity}, image=${image.width}x${image.height}`);
 
@@ -196,6 +197,12 @@ export class EffectProcessor {
       // Default angle: 0 = horizontal trails (like city lights)
       if (effect === 'light-trails') {
         uniforms.u_angle = 0;
+      }
+
+      // Swirl center (from user tap or default)
+      if (effect === 'cinematic-swirl') {
+        const center = options?.swirlCenter || { x: 0.5, y: 0.45 };
+        uniforms.u_swirlCenter = [center.x, center.y];
       }
 
       currentTexture = this.renderPass(effectProgram, currentTexture, uniforms);
