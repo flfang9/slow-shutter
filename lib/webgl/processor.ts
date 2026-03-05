@@ -8,6 +8,7 @@ import {
   handheldDriftShader,
   cinematicSwirlShader,
   softLightShader,
+  lightTrailsShader,
   filmicGrainShader,
   filmGrainShader,
   vibranceShader,
@@ -41,6 +42,7 @@ export class EffectProcessor {
       'handheld-drift': handheldDriftShader,
       'cinematic-swirl': cinematicSwirlShader,
       'soft-light': softLightShader,
+      'light-trails': lightTrailsShader,
       'film-grain': filmicGrainShader,
       'post-film-grain': filmGrainShader,
       'vibrance': vibranceShader,
@@ -177,10 +179,19 @@ export class EffectProcessor {
     const effectProgram = this.programs.get(effect);
     if (effectProgram) {
       const oldTexture = currentTexture;
-      currentTexture = this.renderPass(effectProgram, currentTexture, {
+
+      // Build uniforms - add angle for light-trails effect
+      const uniforms: Record<string, any> = {
         u_intensity: normalizedIntensity,
         u_resolution: resolution,
-      });
+      };
+
+      // Default angle: 0 = horizontal trails (like city lights)
+      if (effect === 'light-trails') {
+        uniforms.u_angle = 0;
+      }
+
+      currentTexture = this.renderPass(effectProgram, currentTexture, uniforms);
       texturesToCleanup.push(oldTexture);
       console.log(`Effect ${effect} applied successfully`);
     } else {

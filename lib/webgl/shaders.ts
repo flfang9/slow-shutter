@@ -10,7 +10,7 @@ export const vertexShaderSource = `
   }
 `;
 
-// Lateral Motion Blur - horizontal directional blur
+// Lateral Motion Blur - horizontal directional blur with ghosting
 export const lateralMotionShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -19,38 +19,50 @@ export const lateralMotionShader = `
   varying vec2 v_texCoord;
 
   void main() {
-    // If intensity is 0, return original image
     if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
 
+    vec4 original = texture2D(u_image, v_texCoord);
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    // Number of samples based on intensity
+    // Motion sweep with ghosting echoes
     int samples = int(mix(8.0, 30.0, u_intensity));
-    float offset = mix(0.005, 0.03, u_intensity);
+    float offset = mix(0.005, 0.04, u_intensity);
 
-    for (int i = 0; i < 30; i++) {
-      if (i >= samples) break;
+    // Create ghosting effect - multiple discrete echoes
+    int ghosts = int(mix(2.0, 6.0, u_intensity));
 
-      float t = float(i) / float(samples - 1);
-      float x = (t - 0.5) * offset;
-      vec2 sampleCoord = v_texCoord + vec2(x, 0.0);
+    for (int g = 0; g < 6; g++) {
+      if (g >= ghosts) break;
 
-      // Sample the texture
-      vec4 sample = texture2D(u_image, sampleCoord);
+      float ghostOffset = float(g) * offset / float(ghosts);
+      float ghostOpacity = exp(-float(g) * 1.5);
 
-      // Luminance-weighted sampling (brighter areas blur more)
-      float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-      float weight = mix(0.5, 1.0, luminance);
+      for (int i = 0; i < 30; i++) {
+        if (i >= samples) break;
 
-      color += sample * weight;
-      total += weight;
+        float t = float(i) / float(samples - 1);
+        float x = (t - 0.5) * offset + ghostOffset;
+        vec2 sampleCoord = v_texCoord + vec2(x, 0.0);
+
+        vec4 sample = texture2D(u_image, sampleCoord);
+
+        // Luminance-weighted sampling (brighter areas trail more)
+        float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+        float weight = mix(0.5, 1.0, luminance) * ghostOpacity;
+
+        color += sample * weight;
+        total += weight;
+      }
     }
 
-    gl_FragColor = color / total;
+    vec4 result = color / total;
+
+    // Blend with original to preserve detail
+    gl_FragColor = mix(original, result, u_intensity);
   }
 `;
 
@@ -176,7 +188,7 @@ export const cinematicSwirlShader = `
   }
 `;
 
-// Handheld Drift - diagonal blur with organic feel
+// Handheld Drift - diagonal blur with organic feel and ghosting
 export const handheldDriftShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -184,45 +196,56 @@ export const handheldDriftShader = `
   uniform vec2 u_resolution;
   varying vec2 v_texCoord;
 
-  // Simple pseudo-random function
   float random(vec2 co) {
     return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
   }
 
   void main() {
-    // If intensity is 0, return original image
     if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
     }
 
+    vec4 original = texture2D(u_image, v_texCoord);
     vec4 color = vec4(0.0);
     float total = 0.0;
 
     int samples = int(mix(8.0, 25.0, u_intensity));
-    float strength = mix(0.005, 0.025, u_intensity);
+    float strength = mix(0.005, 0.035, u_intensity);
 
-    // Diagonal drift direction with subtle randomization
+    // Diagonal drift with ghosting echoes
     vec2 driftDir = normalize(vec2(1.0, 0.3));
+    int ghosts = int(mix(2.0, 5.0, u_intensity));
 
-    for (int i = 0; i < 25; i++) {
-      if (i >= samples) break;
+    for (int g = 0; g < 5; g++) {
+      if (g >= ghosts) break;
 
-      float t = float(i) / float(samples - 1);
+      float ghostOffset = float(g) * strength * 0.4;
+      float ghostOpacity = exp(-float(g) * 1.8);
 
-      // Add organic randomization to offset
-      float randomOffset = random(v_texCoord + float(i)) * 0.3;
-      vec2 offset = driftDir * (t + randomOffset) * strength;
+      for (int i = 0; i < 25; i++) {
+        if (i >= samples) break;
 
-      vec2 sampleCoord = v_texCoord + offset;
-      vec4 sample = texture2D(u_image, sampleCoord);
+        float t = float(i) / float(samples - 1);
 
-      float weight = 1.0 - t * 0.2;
-      color += sample * weight;
-      total += weight;
+        // Organic randomization
+        float randomOffset = random(v_texCoord + float(i) + float(g)) * 0.3;
+        vec2 offset = driftDir * (t + randomOffset) * strength + driftDir * ghostOffset;
+
+        vec2 sampleCoord = v_texCoord + offset;
+        vec4 sample = texture2D(u_image, sampleCoord);
+
+        // Luminance weighting for more pronounced trails on bright areas
+        float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+        float weight = mix(0.6, 1.0, luminance) * (1.0 - t * 0.2) * ghostOpacity;
+
+        color += sample * weight;
+        total += weight;
+      }
     }
 
-    gl_FragColor = color / total;
+    vec4 result = color / total;
+    gl_FragColor = mix(original, result, u_intensity);
   }
 `;
 
@@ -341,7 +364,7 @@ export const contrastCurveShader = `
   }
 `;
 
-// Soft Light - Halation + secondary glow (DaVinci Resolve style)
+// Soft Light - Halation + edge glow (Film stock light bleed)
 export const softLightShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -350,7 +373,6 @@ export const softLightShader = `
   varying vec2 v_texCoord;
 
   void main() {
-    // If intensity is 0, return original image
     if (u_intensity < 0.00001) {
       gl_FragColor = texture2D(u_image, v_texCoord);
       return;
@@ -359,80 +381,145 @@ export const softLightShader = `
     vec4 original = texture2D(u_image, v_texCoord);
     float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    vec4 primaryGlow = vec4(0.0);
-    vec4 secondaryGlow = vec4(0.0);
-    vec4 tertiaryGlow = vec4(0.0);
-    float primaryTotal = 0.0;
-    float secondaryTotal = 0.0;
-    float tertiaryTotal = 0.0;
+    // Edge detection (Sobel operator) to find bright-to-dark transitions
+    vec2 pixelSize = 1.0 / u_resolution;
+    float edgeStrength = 0.0;
 
-    // Much stronger strength range for visible bloom
-    float strength = mix(0.03, 0.25, u_intensity);
+    // Sample surrounding pixels for edge detection
+    float tl = dot(texture2D(u_image, v_texCoord + vec2(-pixelSize.x, pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
+    float t  = dot(texture2D(u_image, v_texCoord + vec2(0.0, pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
+    float tr = dot(texture2D(u_image, v_texCoord + vec2(pixelSize.x, pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
+    float l  = dot(texture2D(u_image, v_texCoord + vec2(-pixelSize.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float r  = dot(texture2D(u_image, v_texCoord + vec2(pixelSize.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float bl = dot(texture2D(u_image, v_texCoord + vec2(-pixelSize.x, -pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
+    float b  = dot(texture2D(u_image, v_texCoord + vec2(0.0, -pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
+    float br = dot(texture2D(u_image, v_texCoord + vec2(pixelSize.x, -pixelSize.y)).rgb, vec3(0.299, 0.587, 0.114));
 
-    // Primary glow - tight halo around light sources (more samples for smoothness)
-    int primarySamples = 16;
-    for (int i = 0; i < 16; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 16.0;
-      float radius = strength * 1.2; // Increased radius
+    float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
+    float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
+    edgeStrength = length(vec2(gx, gy));
 
-      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
-      vec4 sample = texture2D(u_image, v_texCoord + offset);
+    // Only apply halation at edges where bright meets dark
+    float isEdge = smoothstep(0.1, 0.3, edgeStrength);
+    float isBright = smoothstep(0.4, 0.7, luminance);
+    float halationMask = isEdge * isBright;
 
-      primaryGlow += sample;
-      primaryTotal += 1.0;
+    // Red-tinted halation glow (film stock light bleed)
+    vec4 halationGlow = vec4(0.0);
+    if (halationMask > 0.1) {
+      float strength = mix(0.015, 0.08, u_intensity);
+
+      // Very soft red-orange blur
+      int samples = 16;
+      for (int i = 0; i < 16; i++) {
+        float angle = float(i) * 3.14159 * 2.0 / 16.0;
+        float radius = strength * 2.5;
+
+        vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+        vec4 sample = texture2D(u_image, v_texCoord + offset);
+
+        // Shift toward red/orange (film halation color)
+        sample.r *= 1.4;
+        sample.g *= 1.1;
+        sample.b *= 0.8;
+
+        halationGlow += sample;
+      }
+      halationGlow /= float(samples);
     }
-    primaryGlow /= primaryTotal;
 
-    // Secondary glow - wider spread (halation effect)
-    int secondarySamples = 20;
-    for (int i = 0; i < 20; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 20.0;
-      float radius = strength * 3.0; // Much wider spread
-
-      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
-      vec4 sample = texture2D(u_image, v_texCoord + offset);
-
-      secondaryGlow += sample;
-      secondaryTotal += 1.0;
-    }
-    secondaryGlow /= secondaryTotal;
-
-    // Tertiary glow - very wide atmospheric glow
-    int tertiarySamples = 24;
-    for (int i = 0; i < 24; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 24.0;
-      float radius = strength * 6.0; // Very wide for atmosphere
-
-      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
-      vec4 sample = texture2D(u_image, v_texCoord + offset);
-
-      tertiaryGlow += sample;
-      tertiaryTotal += 1.0;
-    }
-    tertiaryGlow /= tertiaryTotal;
-
-    // Lower threshold so more lights get bloom (0.35 instead of 0.6)
+    // Standard bloom for bright areas
+    vec4 bloom = vec4(0.0);
     float glowStrength = max(0.0, (luminance - 0.35) * 1.5);
 
-    // Start with original
-    vec4 result = original;
+    if (glowStrength > 0.1) {
+      float strength = mix(0.03, 0.2, u_intensity);
 
-    // Layer the glows with aggressive strength
-    result = mix(result, primaryGlow, glowStrength * 0.7 * u_intensity);
-    result = mix(result, secondaryGlow, glowStrength * 0.5 * u_intensity);
-    result = mix(result, tertiaryGlow, glowStrength * 0.3 * u_intensity);
+      // Multi-layer bloom
+      for (int i = 0; i < 20; i++) {
+        float angle = float(i) * 3.14159 * 2.0 / 20.0;
+        float radius = strength * 2.0;
 
-    // Halation color bleed - boost warm tones in highlights
-    if (luminance > 0.4) {
-      float halation = (luminance - 0.4) * 1.5;
-
-      // Boost red/yellow channels for warm halation
-      result.r = mix(result.r, result.r * 1.3, halation * u_intensity * 0.6);
-      result.g = mix(result.g, result.g * 1.2, halation * u_intensity * 0.5);
-
-      // Add overall brightness to simulate light bleed
-      result.rgb = mix(result.rgb, result.rgb * 1.4, halation * u_intensity * 0.4);
+        vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+        bloom += texture2D(u_image, v_texCoord + offset);
+      }
+      bloom /= 20.0;
     }
+
+    // Combine: original + bloom + halation
+    vec4 result = original;
+    result = mix(result, bloom, glowStrength * 0.6 * u_intensity);
+    result = mix(result, halationGlow, halationMask * 0.8 * u_intensity);
+
+    gl_FragColor = result;
+  }
+`;
+
+// Light Trails - Echoing/ghosting with luminance masking
+export const lightTrailsShader = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform float u_intensity;
+  uniform vec2 u_resolution;
+  uniform float u_angle; // Trail direction in degrees
+  varying vec2 v_texCoord;
+
+  void main() {
+    if (u_intensity < 0.00001) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
+    vec4 original = texture2D(u_image, v_texCoord);
+    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+
+    // Only create trails from bright areas (luminance masking)
+    float trailMask = smoothstep(0.5, 0.8, luminance);
+
+    if (trailMask < 0.01) {
+      gl_FragColor = original;
+      return;
+    }
+
+    // Convert angle to radians and calculate direction vector
+    float angleRad = radians(u_angle);
+    vec2 direction = vec2(cos(angleRad), sin(angleRad));
+
+    // Number of echoes based on intensity
+    int echoes = int(mix(3.0, 10.0, u_intensity));
+    float trailLength = mix(0.01, 0.05, u_intensity);
+
+    vec4 trailColor = vec4(0.0);
+    float totalWeight = 0.0;
+
+    // Create echoing effect with decreasing opacity and positional offset
+    for (int i = 0; i < 10; i++) {
+      if (i >= echoes) break;
+
+      float t = float(i) / float(echoes);
+
+      // Exponential falloff for opacity (more realistic)
+      float opacity = exp(-t * 4.0);
+
+      // Positional offset along direction
+      vec2 offset = direction * t * trailLength;
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+
+      // Only contribute if sample is also bright (prevents muddy shadows)
+      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+      float sampleMask = smoothstep(0.5, 0.8, sampleLum);
+
+      float weight = opacity * sampleMask;
+      trailColor += sample * weight;
+      totalWeight += weight;
+    }
+
+    if (totalWeight > 0.0) {
+      trailColor /= totalWeight;
+    }
+
+    // Blend trails with original based on trail mask
+    vec4 result = mix(original, trailColor, trailMask * u_intensity * 0.7);
 
     gl_FragColor = result;
   }

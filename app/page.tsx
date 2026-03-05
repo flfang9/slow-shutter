@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film, Crop } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Crop } from 'lucide-react';
 import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
@@ -440,6 +440,7 @@ export default function Home() {
                     { id: 'handheld-drift', icon: Wind, label: 'Drift' },
                     { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
                     { id: 'soft-light', icon: Sparkles, label: 'Light' },
+                    { id: 'light-trails', icon: Zap, label: 'Trails' },
                     { id: 'film-grain', icon: Film, label: 'Grain' },
                   ].map((effect) => {
                     const Icon = effect.icon;

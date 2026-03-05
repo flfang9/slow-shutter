@@ -35,6 +35,12 @@ const EFFECTS: Effect[] = [
     preview: '/effect-previews/soft-light.jpg',
   },
   {
+    id: 'light-trails',
+    name: 'Light Trails',
+    description: 'Ghosting echoes',
+    preview: '/effect-previews/light-trails.jpg',
+  },
+  {
     id: 'film-grain',
     name: 'Film Grain',
     description: 'Japanese cinema',
