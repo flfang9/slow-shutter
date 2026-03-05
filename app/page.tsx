@@ -114,32 +114,7 @@ export default function Home() {
 
       setUploadedImage(finalImg);
 
-      // Process immediately after upload (using setTimeout to ensure state is set)
-      setTimeout(async () => {
-        if (previewProcessorRef.current && previewImage) {
-          try {
-            const result = await previewProcessorRef.current.applyEffect(
-              previewImage,
-              selectedEffect,
-              intensity
-            );
-            setProcessedCanvas(result);
-          } catch (err) {
-            console.error('Preview error:', err);
-          }
-        }
-
-        if (processorRef.current && finalImg) {
-          setTimeout(async () => {
-            try {
-              const result = await processorRef.current!.applyEffect(finalImg, selectedEffect, intensity);
-              setProcessedCanvas(result);
-            } catch (err) {
-              console.error('Processing error:', err);
-            }
-          }, 300);
-        }
-      }, 100);
+      // Process will happen via useEffect when uploadedImage changes
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
       setError(`Upload failed: ${errorMessage}`);
@@ -177,6 +152,15 @@ export default function Home() {
       setIsProcessing(false);
     }
   }, [uploadedImage, selectedEffect, intensity, isProcessing]);
+
+  // Process on initial upload
+  useEffect(() => {
+    if (uploadedImage && previewImage && processedCanvas === null) {
+      processPreview();
+      setTimeout(processFullQuality, 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedImage, previewImage]);
 
   useEffect(() => {
     if (previewImage) processPreview();
