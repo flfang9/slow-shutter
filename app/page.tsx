@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film, Crop } from 'lucide-react';
 import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
@@ -10,6 +10,7 @@ import { ImagePreview } from '@/components/ImagePreview';
 import { ExportControls } from '@/components/ExportControls';
 import { LoadingState } from '@/components/LoadingState';
 import { GridBackground } from '@/components/GridBackground';
+import { CropModal } from '@/components/CropModal';
 import {
   validateImageFile,
   loadImage,
@@ -37,6 +38,7 @@ export default function Home() {
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartIntensity, setDragStartIntensity] = useState(0);
+  const [showCropModal, setShowCropModal] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -211,6 +213,11 @@ export default function Home() {
     fadeTimeoutRef.current = setTimeout(() => {
       setIsDraggingSlider(false);
     }, 500);
+  };
+
+  const handleCropApply = (croppedCanvas: HTMLCanvasElement) => {
+    setProcessedCanvas(croppedCanvas);
+    setShowCropModal(false);
   };
 
   return (
@@ -457,9 +464,17 @@ export default function Home() {
               </div>
             )}
 
-            {/* Always Visible: Share & New Buttons */}
+            {/* Always Visible: Crop | Share | New Buttons */}
             <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-4 border-t border-white/10'}`}>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setShowCropModal(true)}
+                  className="px-4 py-3 text-sm font-medium text-white/40
+                             border border-white/10 rounded-lg transition-all
+                             active:bg-white/5 active:scale-[0.98]"
+                >
+                  Crop
+                </button>
                 <button
                   onClick={async () => {
                     if (!processedCanvas) return;
@@ -507,6 +522,15 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Crop Modal */}
+      {showCropModal && processedCanvas && (
+        <CropModal
+          image={processedCanvas}
+          onClose={() => setShowCropModal(false)}
+          onApply={handleCropApply}
+        />
+      )}
 
       {/* Error Dialog */}
       <Dialog open={!!error} onOpenChange={() => setError(null)}>
