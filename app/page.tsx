@@ -198,21 +198,24 @@ export default function Home() {
     };
   }, [uploadedImage]);
 
-  // Mobile: Tap to toggle, Desktop: Click and hold to show before
-  const handleImageClick = (e: React.MouseEvent | React.TouchEvent) => {
-    // On mobile (touch events), toggle
-    if ('touches' in e) {
-      setShowingBefore(!showingBefore);
+  // Mobile: Tap to toggle
+  const handleImageTap = () => {
+    setShowingBefore(!showingBefore);
+  };
+
+  // Desktop: Click and hold to show before
+  const handleCompareStart = (e: React.PointerEvent) => {
+    // Only for mouse/trackpad, not touch
+    if (e.pointerType !== 'touch') {
+      setShowingBefore(true);
     }
-    // On desktop, ignore click (we use pointerdown/up for hold behavior)
   };
 
-  const handleCompareStart = () => {
-    setShowingBefore(true);
-  };
-
-  const handleCompareEnd = () => {
-    setShowingBefore(false);
+  const handleCompareEnd = (e: React.PointerEvent) => {
+    // Only for mouse/trackpad, not touch
+    if (e.pointerType !== 'touch') {
+      setShowingBefore(false);
+    }
   };
 
   const handleReset = () => {
@@ -285,6 +288,7 @@ export default function Home() {
                     onPointerDown={handleCompareStart}
                     onPointerUp={handleCompareEnd}
                     onPointerLeave={handleCompareEnd}
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                 )}
               </div>
@@ -383,7 +387,7 @@ export default function Home() {
                   WebkitTouchCallout: 'none',
                   objectPosition: 'center 35%',
                 }}
-                onClick={handleImageClick}
+                onTouchEnd={handleImageTap}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
                 onPointerLeave={handleCompareEnd}
