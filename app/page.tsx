@@ -153,12 +153,14 @@ export default function Home() {
 
   // Initial processing when image is first uploaded
   useEffect(() => {
-    if (uploadedImage && previewImage) {
-      processPreview();
-      processFullQuality();
-    }
+    if (!uploadedImage || !previewImage) return;
+
+    // Only process once on initial upload
+    processPreview();
+    const timeout = setTimeout(processFullQuality, 300);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedImage, previewImage]);
+  }, [uploadedImage]);
 
   useEffect(() => {
     if (previewImage) processPreview();
