@@ -1,13 +1,15 @@
 'use client';
 
 import { Effect } from '@/types';
-import { MoveRight, RefreshCw, Maximize, TrendingUp } from 'lucide-react';
+import { MoveRight, RefreshCw, Maximize, TrendingUp, Sparkles, Film } from 'lucide-react';
 
 const EFFECT_ICONS = {
   'lateral-motion': MoveRight,
   'vertical-zoom': Maximize,
   'handheld-drift': TrendingUp,
   'cinematic-swirl': RefreshCw,
+  'soft-light': Sparkles,
+  'film-grain': Film,
 };
 
 interface EffectCardProps {

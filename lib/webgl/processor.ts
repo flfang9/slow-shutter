@@ -7,6 +7,8 @@ import {
   verticalZoomShader,
   handheldDriftShader,
   cinematicSwirlShader,
+  softLightShader,
+  filmicGrainShader,
   filmGrainShader,
   vibranceShader,
   bloomShader,
@@ -38,7 +40,9 @@ export class EffectProcessor {
       'vertical-zoom': verticalZoomShader,
       'handheld-drift': handheldDriftShader,
       'cinematic-swirl': cinematicSwirlShader,
-      'film-grain': filmGrainShader,
+      'soft-light': softLightShader,
+      'film-grain': filmicGrainShader,
+      'post-film-grain': filmGrainShader,
       'vibrance': vibranceShader,
       'bloom': bloomShader,
       'contrast-curve': contrastCurveShader,
@@ -181,15 +185,17 @@ export class EffectProcessor {
     }
 
     // Step 2: Post-processing stack
-    // Film grain
-    const grainProgram = this.programs.get('film-grain');
-    if (grainProgram) {
-      const oldTexture = currentTexture;
-      currentTexture = this.renderPass(grainProgram, currentTexture, {
-        u_time: Math.random() * 1000,
-        u_resolution: resolution,
-      });
-      texturesToCleanup.push(oldTexture);
+    // Film grain (only apply if effect is not already film-grain)
+    if (effect !== 'film-grain') {
+      const grainProgram = this.programs.get('post-film-grain');
+      if (grainProgram) {
+        const oldTexture = currentTexture;
+        currentTexture = this.renderPass(grainProgram, currentTexture, {
+          u_time: Math.random() * 1000,
+          u_resolution: resolution,
+        });
+        texturesToCleanup.push(oldTexture);
+      }
     }
 
     // Vibrance boost

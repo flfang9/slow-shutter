@@ -28,6 +28,18 @@ const EFFECTS: Effect[] = [
     description: 'Tokyo nights radial spin',
     preview: '/effect-previews/swirl.jpg',
   },
+  {
+    id: 'soft-light',
+    name: 'Soft Light',
+    description: 'Halation + glow',
+    preview: '/effect-previews/soft-light.jpg',
+  },
+  {
+    id: 'film-grain',
+    name: 'Film Grain',
+    description: 'Japanese cinema',
+    preview: '/effect-previews/film-grain.jpg',
+  },
 ];
 
 interface EffectSelectorProps {

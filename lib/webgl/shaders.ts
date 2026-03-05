@@ -341,6 +341,132 @@ export const contrastCurveShader = `
   }
 `;
 
+// Soft Light - Halation + secondary glow (DaVinci Resolve style)
+export const softLightShader = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform float u_intensity;
+  uniform vec2 u_resolution;
+  varying vec2 v_texCoord;
+
+  void main() {
+    // If intensity is 0, return original image
+    if (u_intensity < 0.01) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
+    vec4 original = texture2D(u_image, v_texCoord);
+    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+
+    // Only glow on bright areas (threshold 0.6)
+    if (luminance < 0.6) {
+      gl_FragColor = original;
+      return;
+    }
+
+    vec4 primaryGlow = vec4(0.0);
+    vec4 secondaryGlow = vec4(0.0);
+    float primaryTotal = 0.0;
+    float secondaryTotal = 0.0;
+
+    float strength = mix(0.01, 0.08, u_intensity);
+
+    // Primary glow - tight, colorful
+    int primarySamples = 12;
+    for (int i = 0; i < 12; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 12.0;
+      float radius = strength * 0.5;
+
+      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+
+      primaryGlow += sample;
+      primaryTotal += 1.0;
+    }
+    primaryGlow /= primaryTotal;
+
+    // Secondary glow - wider, softer
+    int secondarySamples = 16;
+    for (int i = 0; i < 16; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 16.0;
+      float radius = strength * 1.5;
+
+      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+
+      secondaryGlow += sample;
+      secondaryTotal += 1.0;
+    }
+    secondaryGlow /= secondaryTotal;
+
+    // Combine: original + primary glow + secondary glow
+    float glowStrength = (luminance - 0.6) * 2.5; // 0-1 range for bright areas
+
+    vec4 result = original;
+    result = mix(result, primaryGlow, glowStrength * 0.4 * u_intensity);
+    result = mix(result, secondaryGlow, glowStrength * 0.2 * u_intensity);
+
+    // Slight color boost in glow
+    result.rgb = mix(result.rgb, result.rgb * 1.1, glowStrength * u_intensity * 0.3);
+
+    gl_FragColor = result;
+  }
+`;
+
+// Filmic Grain Effect - Japanese cinema style (Fuji film stocks)
+export const filmicGrainShader = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform float u_intensity;
+  uniform vec2 u_resolution;
+  varying vec2 v_texCoord;
+
+  float random(vec2 co) {
+    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  }
+
+  void main() {
+    // If intensity is 0, return original image
+    if (u_intensity < 0.01) {
+      gl_FragColor = texture2D(u_image, v_texCoord);
+      return;
+    }
+
+    vec4 color = texture2D(u_image, v_texCoord);
+
+    // Heavy grain structure (Japanese film stocks)
+    float grain = random(v_texCoord * 1000.0) * 2.0 - 1.0;
+    float grainStrength = mix(0.03, 0.12, u_intensity);
+
+    // Vary grain by luminance (more visible in midtones)
+    float luminance = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    float grainMask = 1.0 - abs(luminance - 0.5) * 2.0; // Peak at midtones
+    grain *= grainMask;
+
+    // Apply grain
+    color.rgb += vec3(grain * grainStrength);
+
+    // Subtle color shift (cooler tones, Fuji-style)
+    color.r = mix(color.r, color.r * 0.95, u_intensity * 0.15);
+    color.b = mix(color.b, color.b * 1.05, u_intensity * 0.15);
+
+    // Vignette
+    vec2 center = v_texCoord - vec2(0.5);
+    float vignette = 1.0 - dot(center, center) * 0.8;
+    vignette = mix(1.0, vignette, u_intensity * 0.3);
+    color.rgb *= vignette;
+
+    // Slight halation on highlights
+    if (luminance > 0.8) {
+      float bloom = (luminance - 0.8) * 5.0;
+      color.rgb = mix(color.rgb, color.rgb * 1.2, bloom * u_intensity * 0.2);
+    }
+
+    gl_FragColor = color;
+  }
+`;
+
 // Pass-through shader - simple copy for final render
 export const passThroughShader = `
   precision mediump float;
