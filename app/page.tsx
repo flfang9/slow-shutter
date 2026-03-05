@@ -9,6 +9,7 @@ import { LensDial } from '@/components/LensDial';
 import { ImagePreview } from '@/components/ImagePreview';
 import { ExportControls } from '@/components/ExportControls';
 import { LoadingState } from '@/components/LoadingState';
+import { GridBackground } from '@/components/GridBackground';
 import {
   validateImageFile,
   loadImage,
@@ -187,9 +188,12 @@ export default function Home() {
       {/* Desktop Layout - ZERO SHIFT */}
       <div className="hidden md:flex h-screen overflow-hidden max-h-screen">
         {/* Image Container - LEFT 70% */}
-        <div className="w-[70%] h-screen overflow-hidden flex items-center justify-center bg-[#050505]">
+        <div className="w-[70%] h-screen overflow-hidden flex items-center justify-center bg-[#050505] relative">
+          {/* Grid Background (Empty State) */}
+          {!uploadedImage && <GridBackground />}
+
           {!uploadedImage && (
-            <div className="max-w-md w-full px-8">
+            <div className="max-w-md w-full px-8 relative z-10">
               <DropZone onFileSelect={handleFileSelect} />
             </div>
           )}
@@ -225,6 +229,28 @@ export default function Home() {
             </h1>
           </div>
 
+          {/* Manifesto (Empty State) */}
+          {!uploadedImage && (
+            <div className="flex-1 p-8 flex flex-col justify-center">
+              <h2 className="text-2xl font-light text-white/90 mb-4 leading-tight">
+                A Studio for Motion
+              </h2>
+              <p className="text-sm text-white/60 leading-relaxed mb-6">
+                Apply cinematic slow shutter effects to your photographs.
+                Transform static moments into dynamic visual narratives with
+                professional motion blur techniques.
+              </p>
+              <div className="space-y-3 text-xs text-white/40 font-mono">
+                <div>→ Lateral Motion Blur</div>
+                <div>→ Radial Zoom Pull</div>
+                <div>→ Handheld Drift</div>
+                <div>→ Cinematic Swirl</div>
+                <div>→ Soft Light Halation</div>
+                <div>→ Film Grain Texture</div>
+              </div>
+            </div>
+          )}
+
           {uploadedImage && (
             <div className="flex-1 p-6 space-y-6">
               <div className="space-y-3">
@@ -250,9 +276,12 @@ export default function Home() {
       {/* Mobile Layout - Instagram-Style Dock */}
       <div className="block md:hidden h-screen overflow-hidden bg-black relative">
         {/* Full-Screen Image Container - z-0 Layer (with space for dock) */}
-        <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505]">
+        <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505] relative">
+          {/* Grid Background (Empty State) */}
+          {!uploadedImage && <GridBackground />}
+
           {!uploadedImage && (
-            <div className="max-w-sm w-full px-4 z-10">
+            <div className="max-w-sm w-full px-4 z-10 relative">
               <DropZone onFileSelect={handleFileSelect} />
             </div>
           )}
@@ -263,26 +292,19 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
-              <div className="relative w-full h-full">
-                <img
-                  src={processedCanvas.toDataURL('image/jpeg', 0.95)}
-                  alt="Processed"
-                  className="w-full h-full object-contain transition-none select-none"
-                  draggable={false}
-                  onPointerDown={handleCompareStart}
-                  onPointerUp={handleCompareEnd}
-                  onPointerLeave={handleCompareEnd}
-                  onTouchStart={handleCompareStart}
-                  onTouchEnd={handleCompareEnd}
-                />
-                {/* Hold to Compare Hint */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5
-                               bg-black/60 backdrop-blur-sm border border-white/10 rounded-full">
-                  <span className="text-[10px] font-medium text-white/60 uppercase tracking-wider">
-                    Hold to Compare
-                  </span>
-                </div>
-              </div>
+              <img
+                src={processedCanvas.toDataURL('image/jpeg', 0.95)}
+                alt="Processed"
+                className="w-full h-full object-contain transition-none select-none"
+                draggable={false}
+                style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+                onPointerDown={handleCompareStart}
+                onPointerUp={handleCompareEnd}
+                onPointerLeave={handleCompareEnd}
+                onTouchStart={handleCompareStart}
+                onTouchEnd={handleCompareEnd}
+                onContextMenu={(e) => e.preventDefault()}
+              />
             </>
           )}
         </div>

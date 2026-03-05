@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Upload } from 'lucide-react';
 
 interface DropZoneProps {
@@ -8,9 +8,12 @@ interface DropZoneProps {
 }
 
 export function DropZone({ onFileSelect }: DropZoneProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      setIsDragging(false);
       const files = e.dataTransfer.files;
       if (files.length > 0) {
         onFileSelect(files[0]);
@@ -21,6 +24,11 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
   }, []);
 
   const handleFileInput = useCallback(
@@ -37,21 +45,38 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
     <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      className="border-2 border-dashed border-white/10 rounded-2xl
-                 bg-white/5 backdrop-blur-xl hover:border-white/30
-                 transition-all cursor-pointer"
+      onDragLeave={handleDragLeave}
+      className={`
+        relative rounded-2xl border border-white/10
+        bg-black/30 transition-all duration-300 cursor-pointer
+        ${isDragging ? 'bg-black/50 border-white/30' : ''}
+      `}
+      style={{
+        backdropFilter: 'blur(16px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+      }}
     >
-      <label className="flex flex-col items-center justify-center min-h-[400px] p-8 cursor-pointer">
-        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-6">
-          <Upload className="w-8 h-8 text-white/60" />
-        </div>
-        <h2 className="text-lg font-light tracking-wide text-white/80 mb-2">
+      <label className="flex flex-col items-center justify-center min-h-[320px] md:min-h-[400px] p-8 cursor-pointer">
+        {/* Minimalist Upload Icon */}
+        <Upload className="w-10 h-10 text-white/60 mb-6" strokeWidth={1.5} />
+
+        {/* Instruction Text */}
+        <h2 className="text-sm font-light tracking-wide text-white/60 mb-4">
           Drop Image Here
         </h2>
-        <p className="text-sm text-white/50 text-center mb-6">
-          or tap to browse
-        </p>
-        <p className="text-xs text-white/30 font-mono">JPEG • Max 4000px</p>
+
+        {/* Pills */}
+        <div className="flex gap-2">
+          <span className="px-2 py-1 text-[10px] font-medium text-white/50
+                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+            JPG
+          </span>
+          <span className="px-2 py-1 text-[10px] font-medium text-white/50
+                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+            Max 4kpx
+          </span>
+        </div>
+
         <input
           type="file"
           accept=".jpg,.jpeg,image/jpeg"
