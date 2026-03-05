@@ -259,15 +259,55 @@ export default function Home() {
     };
   }, [uploadedImage]);
 
-  // Mobile: Tap to toggle OR set swirl center
-  const handleImageTap = (e: React.TouchEvent<HTMLImageElement>) => {
-    // If Swirl effect is selected, set swirl center instead of toggling
+  // Helper to get actual image bounds accounting for object-contain
+  const getImageBounds = (img: HTMLImageElement) => {
+    const rect = img.getBoundingClientRect();
+    const imgAspect = uploadedImage ? uploadedImage.width / uploadedImage.height : 1;
+    const containerAspect = rect.width / rect.height;
+
+    let displayWidth, displayHeight, offsetX, offsetY;
+
+    if (containerAspect > imgAspect) {
+      // Container is wider - image is constrained by height
+      displayHeight = rect.height;
+      displayWidth = displayHeight * imgAspect;
+      offsetX = (rect.width - displayWidth) / 2;
+      offsetY = 0;
+    } else {
+      // Container is taller - image is constrained by width
+      displayWidth = rect.width;
+      displayHeight = displayWidth / imgAspect;
+      offsetX = 0;
+      offsetY = (rect.height - displayHeight) / 2;
+    }
+
+    return { displayWidth, displayHeight, offsetX, offsetY, rect };
+  };
+
+  // Handle click/tap to set swirl center (works on both mobile and desktop)
+  const handleImageClick = (e: React.MouseEvent<HTMLImageElement> | React.TouchEvent<HTMLImageElement>) => {
     if (selectedEffect === 'cinematic-swirl') {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const touch = e.changedTouches[0];
-      const x = (touch.clientX - rect.left) / rect.width;
-      const y = (touch.clientY - rect.top) / rect.height;
-      setSwirlCenter({ x, y });
+      const img = e.currentTarget;
+      const bounds = getImageBounds(img);
+
+      // Get click/touch position
+      let clientX, clientY;
+      if ('touches' in e) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      // Calculate position relative to actual displayed image (not container)
+      const x = (clientX - bounds.rect.left - bounds.offsetX) / bounds.displayWidth;
+      const y = (clientY - bounds.rect.top - bounds.offsetY) / bounds.displayHeight;
+
+      // Clamp to 0-1 range and set swirl center
+      const clampedX = Math.max(0, Math.min(1, x));
+      const clampedY = Math.max(0, Math.min(1, y));
+      setSwirlCenter({ x: clampedX, y: clampedY });
 
       // Re-process with new center
       setTimeout(() => {
@@ -275,6 +315,7 @@ export default function Home() {
         processFullQuality(selectedEffect, intensity);
       }, 50);
     } else {
+      // For other effects, toggle before/after
       setShowingBefore(!showingBefore);
     }
   };
@@ -364,6 +405,7 @@ export default function Home() {
                   alt="Processed"
                   className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
                   draggable={false}
+                  onClick={handleImageClick}
                   onPointerDown={handleCompareStart}
                   onPointerUp={handleCompareEnd}
                   onPointerLeave={handleCompareEnd}
@@ -468,7 +510,8 @@ export default function Home() {
                   WebkitTouchCallout: 'none',
                   objectPosition: 'center 35%',
                 }}
-                onTouchEnd={handleImageTap}
+                onClick={handleImageClick}
+                onTouchEnd={handleImageClick}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
                 onPointerLeave={handleCompareEnd}
