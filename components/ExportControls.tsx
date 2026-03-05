@@ -40,19 +40,35 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
   };
 
   return (
-    <div className="flex gap-3">
-      <Button onClick={handleDownload} className="flex-1">
-        <Download className="mr-2 h-4 w-4" />
-        Save
-      </Button>
-      <Button onClick={handleShare} variant="secondary" disabled={isSharing}>
-        <Share2 className="mr-2 h-4 w-4" />
-        Share
-      </Button>
-      <Button onClick={onReset} variant="outline">
-        <RotateCcw className="mr-2 h-4 w-4" />
-        New
-      </Button>
+    <div className="space-y-3">
+      <button
+        onClick={handleDownload}
+        className="w-full px-4 py-3 text-sm font-medium bg-white text-black
+                   rounded-lg transition-all hover:bg-white/90 active:scale-95"
+      >
+        <Download className="inline mr-2 h-4 w-4" />
+        Save Image
+      </button>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={handleShare}
+          disabled={isSharing}
+          className="px-4 py-3 text-sm font-medium bg-white/5 hover:bg-white/10
+                     border border-white/10 rounded-lg backdrop-blur-xl transition-all
+                     disabled:opacity-50"
+        >
+          <Share2 className="inline mr-2 h-4 w-4" />
+          Share
+        </button>
+        <button
+          onClick={onReset}
+          className="px-4 py-3 text-sm font-medium bg-white/5 hover:bg-white/10
+                     border border-white/10 rounded-lg backdrop-blur-xl transition-all"
+        >
+          <RotateCcw className="inline mr-2 h-4 w-4" />
+          New
+        </button>
+      </div>
     </div>
   );
 }

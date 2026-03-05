@@ -40,18 +40,15 @@ export function EffectSelector({
   onEffectSelect,
 }: EffectSelectorProps) {
   return (
-    <div className="mb-8">
-      <h2 className="text-xl font-semibold mb-4">Choose Effect</h2>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {EFFECTS.map((effect) => (
-          <EffectCard
-            key={effect.id}
-            effect={effect}
-            selected={selectedEffect === effect.id}
-            onSelect={() => onEffectSelect(effect.id)}
-          />
-        ))}
-      </div>
+    <div className="grid grid-cols-2 gap-3">
+      {EFFECTS.map((effect) => (
+        <EffectCard
+          key={effect.id}
+          effect={effect}
+          selected={selectedEffect === effect.id}
+          onSelect={() => onEffectSelect(effect.id)}
+        />
+      ))}
     </div>
   );
 }

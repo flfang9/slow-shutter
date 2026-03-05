@@ -2,7 +2,6 @@
 
 import { useCallback } from 'react';
 import { Upload } from 'lucide-react';
-import { Card } from './ui/card';
 
 interface DropZoneProps {
   onFileSelect: (file: File) => void;
@@ -35,18 +34,24 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
   );
 
   return (
-    <Card
-      className="border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer"
+    <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
+      className="border-2 border-dashed border-white/10 rounded-2xl
+                 bg-white/5 backdrop-blur-xl hover:border-white/30
+                 transition-all cursor-pointer"
     >
       <label className="flex flex-col items-center justify-center min-h-[400px] p-8 cursor-pointer">
-        <Upload className="w-16 h-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Upload Photo</h2>
-        <p className="text-muted-foreground text-center mb-6">
-          Drag & drop or tap to select
+        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-6">
+          <Upload className="w-8 h-8 text-white/60" />
+        </div>
+        <h2 className="text-lg font-light tracking-wide text-white/80 mb-2">
+          Drop Image Here
+        </h2>
+        <p className="text-sm text-white/50 text-center mb-6">
+          or tap to browse
         </p>
-        <p className="text-sm text-muted-foreground">JPEG only • Max 4000px</p>
+        <p className="text-xs text-white/30 font-mono">JPEG • Max 4000px</p>
         <input
           type="file"
           accept=".jpg,.jpeg,image/jpeg"
@@ -54,6 +59,6 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
           className="hidden"
         />
       </label>
-    </Card>
+    </div>
   );
 }
