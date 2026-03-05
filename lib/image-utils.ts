@@ -69,10 +69,13 @@ async function extractRawPreview(file: File): Promise<Blob | null> {
 export async function loadImage(file: File): Promise<HTMLImageElement> {
   let processedFile = file;
 
-  // Check if it's a RAW file
+  // Check file type once
   const fileName = file.name.toLowerCase();
+  const fileType = file.type.toLowerCase();
   const isRaw = RAW_EXTENSIONS.some(ext => fileName.endsWith(ext));
+  const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || fileType === 'image/heic' || fileType === 'image/heif';
 
+  // Process RAW file first
   if (isRaw) {
     console.log('RAW file detected, extracting preview...');
     const preview = await extractRawPreview(file);
@@ -87,9 +90,6 @@ export async function loadImage(file: File): Promise<HTMLImageElement> {
   }
 
   // Convert HEIC to JPEG if needed
-  const fileName = file.name.toLowerCase();
-  const fileType = file.type.toLowerCase();
-  const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || fileType === 'image/heic' || fileType === 'image/heif';
 
   if (isHeic && typeof window !== 'undefined') {
     try {
