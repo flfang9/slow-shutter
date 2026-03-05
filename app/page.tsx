@@ -119,7 +119,7 @@ export default function Home() {
       console.error('Upload error:', err);
       alert(`Upload failed: ${errorMessage}`);
     }
-  }, [selectedEffect, intensity, previewImage]);
+  }, [selectedEffect, intensity]);
 
   const processPreview = useCallback(async () => {
     if (!previewImage || !previewProcessorRef.current) return;
