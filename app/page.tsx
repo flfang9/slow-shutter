@@ -39,6 +39,7 @@ export default function Home() {
   const [dragStartIntensity, setDragStartIntensity] = useState(0);
   const [showCropModal, setShowCropModal] = useState(false);
   const [showingBefore, setShowingBefore] = useState(false);
+  const [swirlCenter, setSwirlCenter] = useState({ x: 0.5, y: 0.45 });
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -47,6 +48,8 @@ export default function Home() {
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const intensityRef = useRef(intensity);
   const effectRef = useRef(selectedEffect);
+  const rafRef = useRef<number | null>(null);
+  const isPreviewingRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => { intensityRef.current = intensity; }, [intensity]);
@@ -127,19 +130,32 @@ export default function Home() {
     }
   }, [selectedEffect, intensity]);
 
-  const processPreview = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
-    if (!previewImage || !previewProcessorRef.current) return;
+  const processPreviewImmediate = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
+    if (!previewImage || !previewProcessorRef.current || isPreviewingRef.current) return;
+    isPreviewingRef.current = true;
     try {
       const result = await previewProcessorRef.current.applyEffect(
         previewImage,
         effectOverride ?? effectRef.current,
-        intensityOverride ?? intensityRef.current
+        intensityOverride ?? intensityRef.current,
+        { swirlCenter }
       );
       setProcessedCanvas(result);
     } catch (err) {
       console.error('Preview error:', err);
+    } finally {
+      isPreviewingRef.current = false;
     }
-  }, [previewImage]);
+  }, [previewImage, swirlCenter]);
+
+  // RAF-throttled preview for smooth slider dragging
+  const schedulePreview = useCallback(() => {
+    if (rafRef.current) return; // Already scheduled
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      processPreviewImmediate();
+    });
+  }, [processPreviewImmediate]);
 
   const processFullQuality = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
     if (!uploadedImage || !processorRef.current || isProcessing) return;
@@ -162,7 +178,7 @@ export default function Home() {
   }, [uploadedImage, isProcessing]);
 
   useEffect(() => {
-    if (previewImage) processPreview(selectedEffect, intensity);
+    if (previewImage) processPreviewImmediate(selectedEffect, intensity);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
 
@@ -173,11 +189,16 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
 
-  // Real-time preview update when intensity changes
+  // RAF-throttled preview update when intensity changes (60fps max)
   useEffect(() => {
     if (!previewImage) return;
-    // Process immediately for real-time feedback
-    processPreview(selectedEffect, intensity);
+    schedulePreview();
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
 
@@ -214,9 +235,24 @@ export default function Home() {
     };
   }, [uploadedImage]);
 
-  // Mobile: Tap to toggle
-  const handleImageTap = () => {
-    setShowingBefore(!showingBefore);
+  // Mobile: Tap to toggle OR set swirl center
+  const handleImageTap = (e: React.TouchEvent<HTMLImageElement>) => {
+    // If Swirl effect is selected, set swirl center instead of toggling
+    if (selectedEffect === 'cinematic-swirl') {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const touch = e.changedTouches[0];
+      const x = (touch.clientX - rect.left) / rect.width;
+      const y = (touch.clientY - rect.top) / rect.height;
+      setSwirlCenter({ x, y });
+
+      // Re-process with new center
+      setTimeout(() => {
+        processPreviewImmediate(selectedEffect, intensity);
+        processFullQuality(selectedEffect, intensity);
+      }, 50);
+    } else {
+      setShowingBefore(!showingBefore);
+    }
   };
 
   // Desktop: Click and hold to show before
