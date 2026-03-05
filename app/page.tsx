@@ -131,7 +131,13 @@ export default function Home() {
   }, [selectedEffect, intensity]);
 
   const processPreviewImmediate = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
-    if (!previewImage || !previewProcessorRef.current || isPreviewingRef.current) return;
+    if (!previewImage || !previewProcessorRef.current) return;
+    // Skip if already processing, but don't block forever
+    if (isPreviewingRef.current) {
+      // Schedule a retry
+      requestAnimationFrame(() => processPreviewImmediate(effectOverride, intensityOverride));
+      return;
+    }
     isPreviewingRef.current = true;
     try {
       const result = await previewProcessorRef.current.applyEffect(
@@ -349,24 +355,20 @@ export default function Home() {
                 </div>
               )}
               <div className="w-full h-full p-8 flex items-center justify-center">
-                {uploadedImage && (intensity === 0 || processedCanvas) && (
-                  <img
-                    src={
-                      showingBefore
-                        ? uploadedImage.src
-                        : intensity === 0
-                          ? uploadedImage.src
-                          : processedCanvas?.toDataURL('image/jpeg', 0.95) || uploadedImage.src
-                    }
-                    alt="Processed"
-                    className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
-                    draggable={false}
-                    onPointerDown={handleCompareStart}
-                    onPointerUp={handleCompareEnd}
-                    onPointerLeave={handleCompareEnd}
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
-                )}
+                <img
+                  src={
+                    showingBefore || !processedCanvas
+                      ? uploadedImage.src
+                      : processedCanvas.toDataURL('image/jpeg', 0.95)
+                  }
+                  alt="Processed"
+                  className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
+                  draggable={false}
+                  onPointerDown={handleCompareStart}
+                  onPointerUp={handleCompareEnd}
+                  onPointerLeave={handleCompareEnd}
+                  onContextMenu={(e) => e.preventDefault()}
+                />
               </div>
             </>
           )}
@@ -417,7 +419,7 @@ export default function Home() {
               <LensDial value={intensity} onChange={setIntensity} />
 
               <div className="pt-6 border-t border-white/10">
-                <ExportControls canvas={processedCanvas} onReset={handleReset} />
+                <ExportControls canvas={processedCanvas} originalImage={uploadedImage} onReset={handleReset} />
               </div>
             </div>
           )}
@@ -444,7 +446,7 @@ export default function Home() {
 
         {/* Full-Screen Image Container - h-[100dvh] */}
         <div className="fixed inset-0 z-0 h-[100dvh] flex items-center bg-[#050505]">
-          {uploadedImage && (intensity === 0 || processedCanvas) && (
+          {uploadedImage && (
             <>
               {isProcessing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
@@ -452,14 +454,11 @@ export default function Home() {
                 </div>
               )}
 
-
               <img
                 src={
-                  showingBefore
+                  showingBefore || !processedCanvas
                     ? uploadedImage.src
-                    : intensity === 0
-                      ? uploadedImage.src
-                      : processedCanvas?.toDataURL('image/jpeg', 0.95) || uploadedImage.src
+                    : processedCanvas.toDataURL('image/jpeg', 0.95)
                 }
                 alt="Processed"
                 className="w-full h-full object-contain transition-none select-none cursor-pointer"
@@ -589,12 +588,22 @@ export default function Home() {
                 </button>
                 <button
                   onClick={async () => {
-                    if (!processedCanvas) return;
+                    // Use processedCanvas or fallback to original image
+                    let exportCanvas: HTMLCanvasElement | null = processedCanvas;
+                    if (!exportCanvas && uploadedImage) {
+                      exportCanvas = document.createElement('canvas');
+                      exportCanvas.width = uploadedImage.width;
+                      exportCanvas.height = uploadedImage.height;
+                      const ctx = exportCanvas.getContext('2d');
+                      if (ctx) ctx.drawImage(uploadedImage, 0, 0);
+                    }
+                    if (!exportCanvas) return;
+
                     // Mobile: Use native share sheet to save to Photos
                     if (navigator.share && navigator.canShare) {
                       try {
                         const blob = await new Promise<Blob>((resolve) => {
-                          processedCanvas.toBlob((blob) => {
+                          exportCanvas!.toBlob((blob) => {
                             if (blob) resolve(blob);
                           }, 'image/jpeg', 0.95);
                         });

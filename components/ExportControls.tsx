@@ -6,17 +6,36 @@ import { toast } from 'sonner';
 
 interface ExportControlsProps {
   canvas: HTMLCanvasElement | null;
+  originalImage?: HTMLImageElement | null;
   onReset: () => void;
 }
 
-export function ExportControls({ canvas, onReset }: ExportControlsProps) {
+export function ExportControls({ canvas, originalImage, onReset }: ExportControlsProps) {
   const [isSharing, setIsSharing] = useState(false);
 
-  const handleDownload = () => {
-    if (!canvas) return;
+  // Use canvas if available, otherwise create one from original image
+  const getExportCanvas = (): HTMLCanvasElement | null => {
+    if (canvas) return canvas;
+    if (!originalImage) return null;
 
-    // Direct browser download
-    canvas.toBlob((blob) => {
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = originalImage.width;
+    exportCanvas.height = originalImage.height;
+    const ctx = exportCanvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(originalImage, 0, 0);
+      return exportCanvas;
+    }
+    return null;
+  };
+
+  const canExport = !!(canvas || originalImage);
+
+  const handleDownload = () => {
+    const exportCanvas = getExportCanvas();
+    if (!exportCanvas) return;
+
+    exportCanvas.toBlob((blob) => {
       if (!blob) return;
 
       const url = URL.createObjectURL(blob);
@@ -33,14 +52,15 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
   };
 
   const handleShare = async () => {
-    if (!canvas) return;
+    const exportCanvas = getExportCanvas();
+    if (!exportCanvas) return;
 
     // Mobile: Use native share sheet
     if (navigator.share && navigator.canShare) {
       setIsSharing(true);
       try {
         const blob = await new Promise<Blob>((resolve) => {
-          canvas.toBlob((blob) => {
+          exportCanvas.toBlob((blob) => {
             if (blob) resolve(blob);
           }, 'image/jpeg', 0.95);
         });
@@ -69,7 +89,7 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
     // Desktop: Copy image to clipboard
     try {
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
+        exportCanvas.toBlob((blob) => {
           if (blob) resolve(blob);
         }, 'image/png');
       });
@@ -88,8 +108,10 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
     <div className="space-y-3">
       <button
         onClick={handleDownload}
+        disabled={!canExport}
         className="w-full px-4 py-3 text-sm font-medium bg-white text-black
-                   rounded-lg transition-all hover:bg-white/90 active:scale-[0.98]"
+                   rounded-lg transition-all hover:bg-white/90 active:scale-[0.98]
+                   disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Download className="inline mr-2 h-4 w-4" />
         Save
@@ -97,7 +119,7 @@ export function ExportControls({ canvas, onReset }: ExportControlsProps) {
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={handleShare}
-          disabled={isSharing}
+          disabled={isSharing || !canExport}
           className="px-4 py-3 text-sm font-medium text-white/80
                      border border-white/10 rounded-lg transition-all
                      hover:bg-white/5 disabled:opacity-50 active:scale-[0.98]"
