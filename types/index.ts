@@ -1,4 +1,4 @@
-export type EffectType = 'lateral-motion' | 'vertical-zoom' | 'handheld-drift';
+export type EffectType = 'lateral-motion' | 'vertical-zoom' | 'handheld-drift' | 'cinematic-swirl';
 
 export interface Effect {
   id: EffectType;

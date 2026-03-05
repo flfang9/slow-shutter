@@ -88,6 +88,76 @@ export const verticalZoomShader = `
   }
 `;
 
+// Cinematic Swirl - radial zoom with rotation (like Tokyo night street photography)
+export const cinematicSwirlShader = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform float u_intensity;
+  uniform vec2 u_resolution;
+  varying vec2 v_texCoord;
+
+  float random(vec2 co) {
+    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  }
+
+  void main() {
+    // Center point (can be slightly off-center for more dynamic look)
+    vec2 center = vec2(0.5, 0.45);
+    vec2 direction = v_texCoord - center;
+    float distance = length(direction);
+
+    vec4 color = vec4(0.0);
+    float total = 0.0;
+
+    int samples = int(mix(12.0, 35.0, u_intensity));
+    float zoomStrength = mix(0.01, 0.12, u_intensity);
+    float rotationStrength = mix(0.0, 0.15, u_intensity);
+
+    // Subject preservation - keep center sharper
+    float centerFalloff = smoothstep(0.0, 0.3, distance);
+    zoomStrength *= centerFalloff;
+    rotationStrength *= centerFalloff;
+
+    for (int i = 0; i < 35; i++) {
+      if (i >= samples) break;
+
+      float t = float(i) / float(samples - 1);
+
+      // Radial zoom component
+      vec2 zoomOffset = direction * t * zoomStrength;
+
+      // Rotational component (swirl)
+      float angle = t * rotationStrength;
+      float randomAngle = random(v_texCoord + float(i)) * 0.1 - 0.05;
+      angle += randomAngle;
+
+      float cosAngle = cos(angle);
+      float sinAngle = sin(angle);
+      vec2 rotatedDir = vec2(
+        direction.x * cosAngle - direction.y * sinAngle,
+        direction.x * sinAngle + direction.y * cosAngle
+      );
+
+      // Combine zoom and rotation
+      vec2 sampleCoord = center + rotatedDir + zoomOffset;
+
+      vec4 sample = texture2D(u_image, sampleCoord);
+
+      // Weight samples - outer samples fade for smooth blur
+      float weight = 1.0 - t * 0.3;
+
+      // Boost bright areas (lights streak more)
+      float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+      weight *= mix(0.7, 1.3, luminance);
+
+      color += sample * weight;
+      total += weight;
+    }
+
+    gl_FragColor = color / total;
+  }
+`;
+
 // Handheld Drift - diagonal blur with organic feel
 export const handheldDriftShader = `
   precision mediump float;

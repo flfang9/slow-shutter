@@ -22,6 +22,12 @@ const EFFECTS: Effect[] = [
     description: 'Organic camera shake',
     preview: '/effect-previews/drift.jpg',
   },
+  {
+    id: 'cinematic-swirl',
+    name: 'Cinematic Swirl',
+    description: 'Tokyo nights radial spin',
+    preview: '/effect-previews/swirl.jpg',
+  },
 ];
 
 interface EffectSelectorProps {
