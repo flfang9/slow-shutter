@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Check, RotateCcw } from 'lucide-react';
+import { X, Check, RotateCcw, ZoomIn } from 'lucide-react';
 
 interface CropModalProps {
   image: HTMLCanvasElement;
@@ -19,77 +19,120 @@ const ASPECT_RATIOS = [
 ];
 
 export function CropModal({ image, onClose, onApply }: CropModalProps) {
-  const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[0]);
+  const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[3]); // Default to 1:1
   const [rotation, setRotation] = useState(0);
-  const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 100, height: 100 });
+  const [zoom, setZoom] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
+    // Reset position and zoom when ratio changes
+    setPosition({ x: 0, y: 0 });
+    setZoom(1);
+  }, [selectedRatio]);
 
-    // Draw the image
-    canvasRef.current.width = image.width;
-    canvasRef.current.height = image.height;
+  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragStart({ x: clientX - position.x, y: clientY - position.y });
+  };
 
-    // Apply rotation
-    if (rotation !== 0) {
-      ctx.save();
-      ctx.translate(image.width / 2, image.height / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.drawImage(image, -image.width / 2, -image.height / 2);
-      ctx.restore();
-    } else {
-      ctx.drawImage(image, 0, 0);
-    }
-  }, [image, rotation]);
+  const handleDragMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setPosition({
+      x: clientX - dragStart.x,
+      y: clientY - dragStart.y,
+    });
+  };
 
-  useEffect(() => {
-    // Calculate initial crop area based on selected ratio
-    if (selectedRatio.ratio === null) {
-      setCropArea({ x: 0, y: 0, width: 100, height: 100 });
-    } else {
-      const imageAspect = image.width / image.height;
-      const targetAspect = selectedRatio.ratio;
-
-      if (imageAspect > targetAspect) {
-        // Image is wider, crop width
-        const newWidth = (targetAspect / imageAspect) * 100;
-        const offsetX = (100 - newWidth) / 2;
-        setCropArea({ x: offsetX, y: 0, width: newWidth, height: 100 });
-      } else {
-        // Image is taller, crop height
-        const newHeight = (imageAspect / targetAspect) * 100;
-        const offsetY = (100 - newHeight) / 2;
-        setCropArea({ x: 0, y: offsetY, width: 100, height: newHeight });
-      }
-    }
-  }, [selectedRatio, image.width, image.height]);
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
 
   const handleApply = () => {
-    if (!canvasRef.current) return;
+    if (!containerRef.current) return;
 
-    // Create cropped canvas
+    // Get the crop frame dimensions
+    const container = containerRef.current;
+    const cropFrame = container.querySelector('.crop-frame') as HTMLElement;
+    if (!cropFrame) return;
+
+    const frameRect = cropFrame.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    // Calculate crop dimensions
+    let cropWidth = frameRect.width;
+    let cropHeight = frameRect.height;
+
+    // Determine output dimensions based on aspect ratio
+    if (selectedRatio.ratio !== null) {
+      const maxSize = 2000; // Max output dimension
+      if (selectedRatio.ratio > 1) {
+        // Landscape
+        cropWidth = maxSize;
+        cropHeight = maxSize / selectedRatio.ratio;
+      } else {
+        // Portrait or square
+        cropHeight = maxSize;
+        cropWidth = maxSize * selectedRatio.ratio;
+      }
+    }
+
+    // Create output canvas
     const croppedCanvas = document.createElement('canvas');
-    const sourceCanvas = canvasRef.current;
-
-    const cropX = (cropArea.x / 100) * sourceCanvas.width;
-    const cropY = (cropArea.y / 100) * sourceCanvas.height;
-    const cropWidth = (cropArea.width / 100) * sourceCanvas.width;
-    const cropHeight = (cropArea.height / 100) * sourceCanvas.height;
-
     croppedCanvas.width = cropWidth;
     croppedCanvas.height = cropHeight;
 
     const ctx = croppedCanvas.getContext('2d');
-    if (ctx) {
+    if (!ctx) return;
+
+    // Calculate the source area from the original image
+    const scaleX = image.width / (containerRect.width * zoom);
+    const scaleY = image.height / (containerRect.height * zoom);
+
+    const sourceX = ((frameRect.left - containerRect.left - position.x) / zoom) * scaleX;
+    const sourceY = ((frameRect.top - containerRect.top - position.y) / zoom) * scaleY;
+    const sourceWidth = (frameRect.width / zoom) * scaleX;
+    const sourceHeight = (frameRect.height / zoom) * scaleY;
+
+    // Apply rotation if needed
+    if (rotation !== 0) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = image.width;
+      tempCanvas.height = image.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.save();
+        tempCtx.translate(image.width / 2, image.height / 2);
+        tempCtx.rotate((rotation * Math.PI) / 180);
+        tempCtx.drawImage(image, -image.width / 2, -image.height / 2);
+        tempCtx.restore();
+
+        ctx.drawImage(
+          tempCanvas,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          0,
+          0,
+          cropWidth,
+          cropHeight
+        );
+      }
+    } else {
       ctx.drawImage(
-        sourceCanvas,
-        cropX,
-        cropY,
-        cropWidth,
-        cropHeight,
+        image,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
         0,
         0,
         cropWidth,
@@ -119,28 +162,68 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
         </button>
       </div>
 
-      {/* Image Preview with Crop Overlay */}
-      <div className="flex-1 relative flex items-center justify-center p-4 overflow-hidden">
-        <div className="relative max-w-full max-h-full">
-          <canvas
-            ref={canvasRef}
-            className="max-w-full max-h-full object-contain"
-          />
-          {/* Crop Overlay */}
-          <div
-            className="absolute border-2 border-white"
+      {/* Image Preview with Crop Frame */}
+      <div
+        ref={containerRef}
+        className="flex-1 relative flex items-center justify-center overflow-hidden bg-black"
+      >
+        {/* Draggable Image */}
+        <div
+          className="absolute inset-0 flex items-center justify-center touch-none"
+          onTouchStart={handleDragStart}
+          onTouchMove={handleDragMove}
+          onTouchEnd={handleDragEnd}
+          onMouseDown={handleDragStart}
+          onMouseMove={handleDragMove}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={handleDragEnd}
+          style={{
+            cursor: isDragging ? 'grabbing' : 'grab',
+          }}
+        >
+          <img
+            src={image.toDataURL()}
+            alt="Crop preview"
+            className="select-none"
+            draggable={false}
             style={{
-              left: `${cropArea.x}%`,
-              top: `${cropArea.y}%`,
-              width: `${cropArea.width}%`,
-              height: `${cropArea.height}%`,
+              transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+              transformOrigin: 'center',
+              maxWidth: 'none',
+              maxHeight: 'none',
+              width: 'auto',
+              height: '80vh',
+            }}
+          />
+        </div>
+
+        {/* Fixed Crop Frame Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            className="crop-frame relative border-2 border-white"
+            style={{
+              width: selectedRatio.ratio
+                ? selectedRatio.ratio > 1
+                  ? '90%'
+                  : `${90 * selectedRatio.ratio}%`
+                : '90%',
+              aspectRatio: selectedRatio.ratio || 'auto',
+              maxWidth: '90%',
+              maxHeight: '80vh',
             }}
           >
             {/* Corner Brackets */}
-            <div className="absolute top-0 left-0 w-6 h-6 border-l-4 border-t-4 border-white" />
-            <div className="absolute top-0 right-0 w-6 h-6 border-r-4 border-t-4 border-white" />
-            <div className="absolute bottom-0 left-0 w-6 h-6 border-l-4 border-b-4 border-white" />
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-r-4 border-b-4 border-white" />
+            <div className="absolute -top-1 -left-1 w-8 h-8 border-l-4 border-t-4 border-white" />
+            <div className="absolute -top-1 -right-1 w-8 h-8 border-r-4 border-t-4 border-white" />
+            <div className="absolute -bottom-1 -left-1 w-8 h-8 border-l-4 border-b-4 border-white" />
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 border-r-4 border-b-4 border-white" />
+
+            {/* Darkened overlay outside crop */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-0" style={{
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+              }} />
+            </div>
           </div>
         </div>
       </div>
@@ -179,8 +262,31 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
           ))}
         </div>
 
+        {/* Zoom Slider */}
+        <div className="px-6 py-3 space-y-2">
+          <div className="flex items-center justify-between text-xs text-white/60">
+            <div className="flex items-center gap-2">
+              <ZoomIn className="w-4 h-4" />
+              <span>Zoom</span>
+            </div>
+            <span>{Math.round(zoom * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0.5"
+            max="3"
+            step="0.1"
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer
+                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                       [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-white
+                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+          />
+        </div>
+
         {/* Rotation Slider */}
-        <div className="px-6 py-4 space-y-2">
+        <div className="px-6 py-3 space-y-2 border-t border-white/10">
           <div className="flex items-center justify-between text-xs text-white/60">
             <div className="flex items-center gap-2">
               <RotateCcw className="w-4 h-4" />
