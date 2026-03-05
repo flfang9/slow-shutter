@@ -1,5 +1,5 @@
 import { EffectType } from '@/types';
-import { createWebGLContext, setupQuad, createTexture } from './context';
+import { createWebGLContext, createTexture } from './context';
 import { compileShaderProgram } from './program';
 import {
   vertexShaderSource,
@@ -21,6 +21,8 @@ export class EffectProcessor {
   private canvas: HTMLCanvasElement;
   private gl: WebGLRenderingContext;
   private programs: Map<string, WebGLProgram> = new Map();
+  private positionBuffer: WebGLBuffer | null = null;
+  private texCoordBuffer: WebGLBuffer | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     console.log('Initializing EffectProcessor with canvas:', canvas);
@@ -33,6 +35,40 @@ export class EffectProcessor {
     console.log('WebGL context created:', gl);
     this.gl = gl;
     this.initializePrograms();
+    this.initializeBuffers();
+  }
+
+  private initializeBuffers() {
+    const gl = this.gl;
+
+    // Create reusable quad buffers
+    const positions = new Float32Array([
+      -1, -1,  // bottom left
+       1, -1,  // bottom right
+      -1,  1,  // top left
+       1,  1,  // top right
+    ]);
+
+    const texCoords = new Float32Array([
+      0, 0,  // bottom left
+      1, 0,  // bottom right
+      0, 1,  // top left
+      1, 1,  // top right
+    ]);
+
+    // Position buffer
+    this.positionBuffer = gl.createBuffer();
+    if (this.positionBuffer) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    }
+
+    // Texture coordinate buffer
+    this.texCoordBuffer = gl.createBuffer();
+    if (this.texCoordBuffer) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
+    }
   }
 
   private initializePrograms() {
@@ -110,8 +146,20 @@ export class EffectProcessor {
     // Now use the program and bind input texture
     gl.useProgram(program);
 
-    // Setup quad geometry
-    setupQuad(gl, program);
+    // Setup quad geometry (reuse existing buffers)
+    if (this.positionBuffer && this.texCoordBuffer) {
+      // Bind position buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+      const positionLocation = gl.getAttribLocation(program, 'a_position');
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      // Bind texture coordinate buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+      const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
+      gl.enableVertexAttribArray(texCoordLocation);
+      gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+    }
 
     // Bind input texture to texture unit 0
     gl.activeTexture(gl.TEXTURE0);
@@ -259,7 +307,20 @@ export class EffectProcessor {
     const finalProgram = this.programs.get('pass-through');
     if (finalProgram) {
       gl.useProgram(finalProgram);
-      setupQuad(gl, finalProgram);
+
+      // Setup quad geometry (reuse existing buffers)
+      if (this.positionBuffer && this.texCoordBuffer) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+        const positionLocation = gl.getAttribLocation(finalProgram, 'a_position');
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+        const texCoordLocation = gl.getAttribLocation(finalProgram, 'a_texCoord');
+        gl.enableVertexAttribArray(texCoordLocation);
+        gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+      }
+
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, currentTexture);
       gl.uniform1i(gl.getUniformLocation(finalProgram, 'u_image'), 0);
@@ -285,9 +346,20 @@ export class EffectProcessor {
   }
 
   public dispose() {
+    // Delete programs
     for (const program of this.programs.values()) {
       this.gl.deleteProgram(program);
     }
     this.programs.clear();
+
+    // Delete buffers
+    if (this.positionBuffer) {
+      this.gl.deleteBuffer(this.positionBuffer);
+      this.positionBuffer = null;
+    }
+    if (this.texCoordBuffer) {
+      this.gl.deleteBuffer(this.texCoordBuffer);
+      this.texCoordBuffer = null;
+    }
   }
 }

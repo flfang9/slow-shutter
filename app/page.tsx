@@ -29,7 +29,7 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('cinematic-swirl');
-  const [intensity, setIntensity] = useState(50);
+  const [intensity, setIntensity] = useState(75);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,15 +50,19 @@ export default function Home() {
   const effectRef = useRef(selectedEffect);
   const rafRef = useRef<number | null>(null);
   const isPreviewingRef = useRef(false);
+  const activeTouchListenersRef = useRef<Array<() => void>>([]);
+
+  // Clean up active touch listeners on unmount
+  useEffect(() => {
+    return () => {
+      activeTouchListenersRef.current.forEach(cleanup => cleanup());
+      activeTouchListenersRef.current = [];
+    };
+  }, []);
 
   // Keep refs in sync
   useEffect(() => { intensityRef.current = intensity; }, [intensity]);
   useEffect(() => { effectRef.current = selectedEffect; }, [selectedEffect]);
-
-  // Reset intensity to 50 when switching effects
-  useEffect(() => {
-    setIntensity(50);
-  }, [selectedEffect]);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -347,7 +351,7 @@ export default function Home() {
     setPreviewImage(null);
     setProcessedCanvas(null);
     setSelectedEffect('cinematic-swirl');
-    setIntensity(50);
+    setIntensity(75);
     setError(null);
     setDockMinimized(false);
   };
@@ -535,8 +539,10 @@ export default function Home() {
                   WebkitTouchCallout: 'none',
                   objectPosition: 'center 35%',
                 }}
-                onClick={handleImageClick}
-                onTouchEnd={handleImageClick}
+                onTouchEnd={(e) => {
+                  e.preventDefault(); // Prevent synthetic click event (fixes double-tap bug)
+                  handleImageClick(e);
+                }}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
                 onPointerLeave={handleCompareEnd}
