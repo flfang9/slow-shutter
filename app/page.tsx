@@ -114,10 +114,31 @@ export default function Home() {
 
       setUploadedImage(finalImg);
 
-      // Process immediately after upload
-      setTimeout(() => {
-        processPreview();
-        setTimeout(processFullQuality, 300);
+      // Process immediately after upload (using setTimeout to ensure state is set)
+      setTimeout(async () => {
+        if (previewProcessorRef.current && previewImage) {
+          try {
+            const result = await previewProcessorRef.current.applyEffect(
+              previewImage,
+              selectedEffect,
+              intensity
+            );
+            setProcessedCanvas(result);
+          } catch (err) {
+            console.error('Preview error:', err);
+          }
+        }
+
+        if (processorRef.current && finalImg) {
+          setTimeout(async () => {
+            try {
+              const result = await processorRef.current!.applyEffect(finalImg, selectedEffect, intensity);
+              setProcessedCanvas(result);
+            } catch (err) {
+              console.error('Processing error:', err);
+            }
+          }, 300);
+        }
       }, 100);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
@@ -125,7 +146,7 @@ export default function Home() {
       console.error('Upload error:', err);
       alert(`Upload failed: ${errorMessage}`);
     }
-  }, [processPreview, processFullQuality]);
+  }, [selectedEffect, intensity, previewImage]);
 
   const processPreview = useCallback(async () => {
     if (!previewImage || !previewProcessorRef.current) return;
