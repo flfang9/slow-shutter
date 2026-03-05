@@ -249,8 +249,8 @@ export default function Home() {
 
       {/* Mobile Layout - Instagram-Style Dock */}
       <div className="block md:hidden h-screen overflow-hidden bg-black relative">
-        {/* Full-Screen Image Container - z-0 Layer */}
-        <div className="fixed inset-0 z-0 flex items-center justify-center bg-[#050505]">
+        {/* Full-Screen Image Container - z-0 Layer (with space for dock) */}
+        <div className="fixed top-0 left-0 right-0 bottom-[240px] z-0 flex items-center justify-center bg-[#050505]">
           {!uploadedImage && (
             <div className="max-w-sm w-full px-4 z-10">
               <DropZone onFileSelect={handleFileSelect} />
@@ -263,15 +263,26 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
-              <img
-                src={processedCanvas.toDataURL('image/jpeg', 0.95)}
-                alt="Processed"
-                className="w-full h-full object-contain transition-none select-none"
-                draggable={false}
-                onPointerDown={handleCompareStart}
-                onPointerUp={handleCompareEnd}
-                onPointerLeave={handleCompareEnd}
-              />
+              <div className="relative w-full h-full">
+                <img
+                  src={processedCanvas.toDataURL('image/jpeg', 0.95)}
+                  alt="Processed"
+                  className="w-full h-full object-contain transition-none select-none"
+                  draggable={false}
+                  onPointerDown={handleCompareStart}
+                  onPointerUp={handleCompareEnd}
+                  onPointerLeave={handleCompareEnd}
+                  onTouchStart={handleCompareStart}
+                  onTouchEnd={handleCompareEnd}
+                />
+                {/* Hold to Compare Hint */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5
+                               bg-black/60 backdrop-blur-sm border border-white/10 rounded-full">
+                  <span className="text-[10px] font-medium text-white/60 uppercase tracking-wider">
+                    Hold to Compare
+                  </span>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -283,12 +294,12 @@ export default function Home() {
               {/* Row 1: Effect Icons (Horizontal Scroll) */}
               <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
                 {[
-                  { id: 'lateral-motion', icon: MoveRight },
-                  { id: 'vertical-zoom', icon: Maximize },
-                  { id: 'handheld-drift', icon: Wind },
-                  { id: 'cinematic-swirl', icon: RotateCw },
-                  { id: 'soft-light', icon: Sparkles },
-                  { id: 'film-grain', icon: Film },
+                  { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
+                  { id: 'vertical-zoom', icon: Maximize, label: 'Zoom' },
+                  { id: 'handheld-drift', icon: Wind, label: 'Drift' },
+                  { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
+                  { id: 'soft-light', icon: Sparkles, label: 'Light' },
+                  { id: 'film-grain', icon: Film, label: 'Grain' },
                 ].map((effect) => {
                   const Icon = effect.icon;
                   return (
@@ -296,8 +307,8 @@ export default function Home() {
                       key={effect.id}
                       onClick={() => setSelectedEffect(effect.id as EffectType)}
                       className={`
-                        snap-center flex-shrink-0 w-[50px] h-[50px] rounded-lg
-                        border transition-all active:scale-95 flex items-center justify-center
+                        snap-center flex-shrink-0 w-[70px] h-[70px] rounded-lg
+                        border transition-all active:scale-95 flex flex-col items-center justify-center gap-1
                         ${
                           selectedEffect === effect.id
                             ? 'border-white bg-white/10'
@@ -310,6 +321,11 @@ export default function Home() {
                           selectedEffect === effect.id ? 'text-white' : 'text-white/50'
                         }`}
                       />
+                      <span className={`text-[9px] font-medium uppercase tracking-wider ${
+                        selectedEffect === effect.id ? 'text-white' : 'text-white/40'
+                      }`}>
+                        {effect.label}
+                      </span>
                     </button>
                   );
                 })}
