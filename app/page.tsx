@@ -395,7 +395,7 @@ export default function Home() {
               <DropZone onFileSelect={handleFileSelect} />
             </div>
           )}
-          {uploadedImage && (
+          {uploadedImage && uploadedImage.src && (
             <>
               {isProcessing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
@@ -405,9 +405,11 @@ export default function Home() {
               <div className="w-full h-full p-8 flex items-center justify-center">
                 <img
                   src={
-                    showingBefore || !processedCanvas
+                    showingBefore
                       ? uploadedImage.src
-                      : processedCanvas.toDataURL('image/jpeg', 0.95)
+                      : processedCanvas
+                        ? processedCanvas.toDataURL('image/jpeg', 0.95)
+                        : uploadedImage.src
                   }
                   alt="Processed"
                   className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
@@ -495,7 +497,7 @@ export default function Home() {
 
         {/* Full-Screen Image Container - h-[100dvh] */}
         <div className="fixed inset-0 z-0 h-[100dvh] flex items-center bg-[#050505]">
-          {uploadedImage && (
+          {uploadedImage && uploadedImage.src && (
             <>
               {isProcessing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
@@ -505,9 +507,11 @@ export default function Home() {
 
               <img
                 src={
-                  showingBefore || !processedCanvas
+                  showingBefore
                     ? uploadedImage.src
-                    : processedCanvas.toDataURL('image/jpeg', 0.95)
+                    : processedCanvas
+                      ? processedCanvas.toDataURL('image/jpeg', 0.95)
+                      : uploadedImage.src
                 }
                 alt="Processed"
                 className="w-full h-full object-contain transition-none select-none cursor-pointer"
