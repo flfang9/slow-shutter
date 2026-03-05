@@ -423,32 +423,52 @@ export default function Home() {
                   <LoadingState />
                 </div>
               )}
-              <div className="w-full h-full p-8 flex items-center justify-center">
+              <div className="w-full h-full p-8 flex items-center justify-center relative">
                 {uploadedImage.src && (
-                  <img
-                    src={
-                      showingBefore
-                        ? uploadedImage.src
-                        : processedCanvas
-                          ? processedCanvas.toDataURL('image/jpeg', 0.95)
-                          : uploadedImage.src
-                    }
-                    alt="Processed"
-                    className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
-                    draggable={false}
-                    onClick={handleImageClick}
-                    onPointerDown={handleCompareStart}
-                    onPointerUp={handleCompareEnd}
-                    onPointerLeave={handleCompareEnd}
-                    onContextMenu={(e) => e.preventDefault()}
-                    onError={(e) => {
-                      console.error('Image failed to load:', {
-                        showingBefore,
-                        uploadedImageSrc: uploadedImage.src?.substring(0, 50),
-                        hasProcessedCanvas: !!processedCanvas
-                      });
-                    }}
-                  />
+                  <>
+                    <img
+                      src={
+                        showingBefore
+                          ? uploadedImage.src
+                          : processedCanvas
+                            ? processedCanvas.toDataURL('image/jpeg', 0.95)
+                            : uploadedImage.src
+                      }
+                      alt="Processed"
+                      className="max-h-[85vh] max-w-[90%] object-contain transition-none cursor-pointer select-none"
+                      draggable={false}
+                      onClick={handleImageClick}
+                      onPointerDown={handleCompareStart}
+                      onPointerUp={handleCompareEnd}
+                      onPointerLeave={handleCompareEnd}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onError={(e) => {
+                        console.error('Image failed to load:', {
+                          showingBefore,
+                          uploadedImageSrc: uploadedImage.src?.substring(0, 50),
+                          hasProcessedCanvas: !!processedCanvas
+                        });
+                      }}
+                    />
+                    {/* Swirl center indicator */}
+                    {selectedEffect === 'cinematic-swirl' && !showingBefore && (
+                      <div
+                        className="absolute pointer-events-none transition-all duration-200"
+                        style={{
+                          left: `calc(5% + ${swirlCenter.x * 90}%)`,
+                          top: `calc(7.5% + ${(1 - swirlCenter.y) * 85}%)`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      >
+                        <div className="w-8 h-8 rounded-full border border-white/40 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                        </div>
+                        <div className="text-[9px] text-white/40 text-center mt-1 whitespace-nowrap">
+                          tap to move
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -574,6 +594,21 @@ export default function Home() {
                 onPointerLeave={handleCompareEnd}
                 onContextMenu={(e) => e.preventDefault()}
               />
+              {/* Mobile: Swirl center indicator */}
+              {selectedEffect === 'cinematic-swirl' && !showingBefore && (
+                <div
+                  className="absolute pointer-events-none transition-all duration-200"
+                  style={{
+                    left: `${swirlCenter.x * 100}%`,
+                    top: `${(1 - swirlCenter.y) * 100}%`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center backdrop-blur-sm">
+                    <div className="w-2 h-2 rounded-full bg-white/50" />
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -671,7 +706,11 @@ export default function Home() {
                   onPointerLeave={handleSliderDragEnd}
                 >
                   <div className="flex justify-center items-center gap-2 mb-2">
-                    <span className="text-xs text-white/40 tabular-nums">
+                    <span className={`tabular-nums transition-all ${
+                      isDraggingSlider
+                        ? 'text-base text-white font-medium'
+                        : 'text-xs text-white/40'
+                    }`}>
                       {intensity}%
                     </span>
                     {selectedEffect === 'light-trails' && (
@@ -684,7 +723,9 @@ export default function Home() {
                       </span>
                     )}
                   </div>
-                  <div className="h-0.5 bg-white/10 rounded-full relative">
+                  <div className={`rounded-full relative transition-all ${
+                    isDraggingSlider ? 'h-1 bg-white/20' : 'h-0.5 bg-white/10'
+                  }`}>
                     {/* Threshold marker for light-trails */}
                     {selectedEffect === 'light-trails' && (
                       <div
@@ -693,10 +734,14 @@ export default function Home() {
                       />
                     )}
                     <div
-                      className={`h-full rounded-full transition-all ${
-                        selectedEffect === 'light-trails' && intensity >= 65
-                          ? 'bg-white/90'
-                          : 'bg-white/60'
+                      className={`h-full rounded-full ${
+                        isDraggingSlider ? '' : 'transition-all'
+                      } ${
+                        isDraggingSlider
+                          ? 'bg-white shadow-[0_0_12px_rgba(255,255,255,0.6)]'
+                          : selectedEffect === 'light-trails' && intensity >= 65
+                            ? 'bg-white/90'
+                            : 'bg-white/60'
                       }`}
                       style={{ width: `${intensity}%` }}
                     />

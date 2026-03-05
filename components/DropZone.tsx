@@ -81,11 +81,15 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
                           bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
             HEIC
           </span>
+          <span className="px-2 py-1 text-[10px] font-medium text-white/40
+                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+            RAW
+          </span>
         </div>
 
         <input
           type="file"
-          accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
+          accept=".jpg,.jpeg,.png,.heic,.heif,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.rw2,.pef,.srw,image/jpeg,image/png,image/heic,image/heif"
           onChange={handleFileInput}
           className="hidden"
         />

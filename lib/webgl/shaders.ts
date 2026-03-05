@@ -213,7 +213,7 @@ export const cinematicSwirlShader = `
   }
 `;
 
-// Handheld Drift - diagonal blur with organic feel and ghosting
+// Handheld Drift - diagonal blur with organic feel, ghosting + Comet Effect
 export const handheldDriftShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -223,6 +223,14 @@ export const handheldDriftShader = `
 
   float random(vec2 co) {
     return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  }
+
+  // Comet curve - variable camera velocity
+  float cometBezier(float t) {
+    float t2 = t * 2.0 - 1.0;
+    float u = t2 * t2;
+    float cubic = u * u * (3.0 - 2.0 * u);
+    return 1.0 - cubic * 0.5;
   }
 
   void main() {
@@ -235,8 +243,8 @@ export const handheldDriftShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(8.0, 25.0, u_intensity));
-    float strength = mix(0.005, 0.035, u_intensity);
+    int samples = int(mix(10.0, 28.0, u_intensity));
+    float strength = mix(0.006, 0.04, u_intensity);
 
     // Diagonal drift with ghosting echoes
     vec2 driftDir = normalize(vec2(1.0, 0.3));
@@ -246,15 +254,18 @@ export const handheldDriftShader = `
       if (g >= ghosts) break;
 
       float ghostOffset = float(g) * strength * 0.4;
-      float ghostOpacity = exp(-float(g) * 1.8);
+      float ghostOpacity = exp(-float(g) * 1.6);
 
-      for (int i = 0; i < 25; i++) {
+      for (int i = 0; i < 28; i++) {
         if (i >= samples) break;
 
         float t = float(i) / float(samples - 1);
 
+        // Comet effect for variable velocity feel
+        float cometCurve = cometBezier(t);
+
         // Organic randomization
-        float randomOffset = random(v_texCoord + float(i) + float(g)) * 0.3;
+        float randomOffset = random(v_texCoord + float(i) + float(g)) * 0.25;
         vec2 offset = driftDir * (t + randomOffset) * strength + driftDir * ghostOffset;
 
         vec2 sampleCoord = v_texCoord + offset;
@@ -262,7 +273,7 @@ export const handheldDriftShader = `
 
         // Luminance weighting for more pronounced trails on bright areas
         float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-        float weight = mix(0.6, 1.0, luminance) * (1.0 - t * 0.2) * ghostOpacity;
+        float weight = mix(0.6, 1.0, luminance) * cometCurve * ghostOpacity;
 
         color += sample * weight;
         total += weight;
