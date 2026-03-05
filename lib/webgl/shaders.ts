@@ -6,7 +6,8 @@ export const vertexShaderSource = `
 
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
-    v_texCoord = a_texCoord;
+    // Flip Y coordinate to match image coordinate system
+    v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
   }
 `;
 
@@ -23,10 +24,10 @@ export const lateralMotionShader = `
     float total = 0.0;
 
     // Number of samples based on intensity
-    int samples = int(mix(5.0, 25.0, u_intensity));
-    float offset = mix(0.001, 0.005, u_intensity);
+    int samples = int(mix(8.0, 30.0, u_intensity));
+    float offset = mix(0.005, 0.03, u_intensity); // Increased from 0.001-0.005 to 0.005-0.03
 
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < 30; i++) {
       if (i >= samples) break;
 
       float t = float(i) / float(samples - 1);
@@ -63,14 +64,14 @@ export const verticalZoomShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(5.0, 20.0, u_intensity));
-    float strength = mix(0.01, 0.08, u_intensity);
+    int samples = int(mix(8.0, 25.0, u_intensity));
+    float strength = mix(0.02, 0.15, u_intensity); // Increased from 0.01-0.08
 
     // Gradient mask - stronger at top, subtle at bottom
     float gradient = v_texCoord.y;
     strength *= gradient;
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 25; i++) {
       if (i >= samples) break;
 
       float t = float(i) / float(samples - 1);
@@ -105,13 +106,13 @@ export const handheldDriftShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(5.0, 18.0, u_intensity));
-    float strength = mix(0.001, 0.004, u_intensity);
+    int samples = int(mix(8.0, 25.0, u_intensity));
+    float strength = mix(0.005, 0.025, u_intensity); // Increased from 0.001-0.004
 
     // Diagonal drift direction with subtle randomization
     vec2 driftDir = normalize(vec2(1.0, 0.3));
 
-    for (int i = 0; i < 18; i++) {
+    for (int i = 0; i < 25; i++) {
       if (i >= samples) break;
 
       float t = float(i) / float(samples - 1);
