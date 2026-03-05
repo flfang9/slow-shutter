@@ -295,7 +295,7 @@ export default function Home() {
               <img
                 src={processedCanvas.toDataURL('image/jpeg', 0.95)}
                 alt="Processed"
-                className="w-full h-full object-contain transition-none select-none"
+                className="w-full h-full object-contain object-center transition-none select-none"
                 draggable={false}
                 style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
                 onPointerDown={handleCompareStart}

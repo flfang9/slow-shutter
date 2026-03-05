@@ -1,12 +1,19 @@
+import heic2any from 'heic2any';
+
 const MAX_DIMENSION = 4000;
-const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg'];
+const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/heic', 'image/heif'];
 
 export function validateImageFile(file: File): { valid: boolean; error?: string } {
   // Check file type
-  if (!ACCEPTED_TYPES.includes(file.type.toLowerCase())) {
+  const fileType = file.type.toLowerCase();
+  const fileName = file.name.toLowerCase();
+  const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || fileType === 'image/heic' || fileType === 'image/heif';
+  const isJpeg = ACCEPTED_TYPES.includes(fileType) || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+
+  if (!isJpeg && !isHeic) {
     return {
       valid: false,
-      error: 'Only JPEG images are supported. Please upload a .jpg or .jpeg file.',
+      error: 'Only JPEG and HEIC images are supported.',
     };
   }
 
@@ -21,10 +28,36 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
   return { valid: true };
 }
 
-export function loadImage(file: File): Promise<HTMLImageElement> {
+export async function loadImage(file: File): Promise<HTMLImageElement> {
+  let processedFile = file;
+
+  // Convert HEIC to JPEG if needed
+  const fileName = file.name.toLowerCase();
+  const fileType = file.type.toLowerCase();
+  const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || fileType === 'image/heic' || fileType === 'image/heif';
+
+  if (isHeic) {
+    try {
+      const convertedBlob = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.95,
+      });
+
+      // heic2any can return Blob or Blob[]
+      const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+      processedFile = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), {
+        type: 'image/jpeg',
+      });
+    } catch (error) {
+      console.error('HEIC conversion failed:', error);
+      throw new Error('Failed to convert HEIC image');
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(processedFile);
 
     img.onload = () => {
       URL.revokeObjectURL(url);
