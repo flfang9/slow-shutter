@@ -212,9 +212,10 @@ export class EffectProcessor {
       console.error(`Effect program not found: ${effect}`);
     }
 
-    // Step 2: Post-processing stack
-    // Film grain (only apply if effect is not already film-grain)
-    if (effect !== 'film-grain') {
+    // Step 2: Post-processing stack (ONLY for film-grain effect)
+    // For all other effects, skip post-processing to preserve original colors
+    if (effect === 'film-grain') {
+      // Film grain texture
       const grainProgram = this.programs.get('post-film-grain');
       if (grainProgram) {
         const oldTexture = currentTexture;
@@ -224,32 +225,32 @@ export class EffectProcessor {
         });
         texturesToCleanup.push(oldTexture);
       }
-    }
 
-    // Vibrance boost
-    const vibranceProgram = this.programs.get('vibrance');
-    if (vibranceProgram) {
-      const oldTexture = currentTexture;
-      currentTexture = this.renderPass(vibranceProgram, currentTexture);
-      texturesToCleanup.push(oldTexture);
-    }
+      // Vibrance boost
+      const vibranceProgram = this.programs.get('vibrance');
+      if (vibranceProgram) {
+        const oldTexture = currentTexture;
+        currentTexture = this.renderPass(vibranceProgram, currentTexture);
+        texturesToCleanup.push(oldTexture);
+      }
 
-    // Light bloom
-    const bloomProgram = this.programs.get('bloom');
-    if (bloomProgram) {
-      const oldTexture = currentTexture;
-      currentTexture = this.renderPass(bloomProgram, currentTexture, {
-        u_resolution: resolution,
-      });
-      texturesToCleanup.push(oldTexture);
-    }
+      // Light bloom
+      const bloomProgram = this.programs.get('bloom');
+      if (bloomProgram) {
+        const oldTexture = currentTexture;
+        currentTexture = this.renderPass(bloomProgram, currentTexture, {
+          u_resolution: resolution,
+        });
+        texturesToCleanup.push(oldTexture);
+      }
 
-    // Contrast curve
-    const contrastProgram = this.programs.get('contrast-curve');
-    if (contrastProgram) {
-      const oldTexture = currentTexture;
-      currentTexture = this.renderPass(contrastProgram, currentTexture);
-      texturesToCleanup.push(oldTexture);
+      // Contrast curve
+      const contrastProgram = this.programs.get('contrast-curve');
+      if (contrastProgram) {
+        const oldTexture = currentTexture;
+        currentTexture = this.renderPass(contrastProgram, currentTexture);
+        texturesToCleanup.push(oldTexture);
+      }
     }
 
     // Final render to canvas
