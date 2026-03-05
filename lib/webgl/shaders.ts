@@ -359,24 +359,21 @@ export const softLightShader = `
     vec4 original = texture2D(u_image, v_texCoord);
     float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    // Only glow on bright areas (threshold 0.6)
-    if (luminance < 0.6) {
-      gl_FragColor = original;
-      return;
-    }
-
     vec4 primaryGlow = vec4(0.0);
     vec4 secondaryGlow = vec4(0.0);
+    vec4 tertiaryGlow = vec4(0.0);
     float primaryTotal = 0.0;
     float secondaryTotal = 0.0;
+    float tertiaryTotal = 0.0;
 
-    float strength = mix(0.01, 0.08, u_intensity);
+    // Much stronger strength range for visible bloom
+    float strength = mix(0.03, 0.25, u_intensity);
 
-    // Primary glow - tight, colorful
-    int primarySamples = 12;
-    for (int i = 0; i < 12; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 12.0;
-      float radius = strength * 0.5;
+    // Primary glow - tight halo around light sources (more samples for smoothness)
+    int primarySamples = 16;
+    for (int i = 0; i < 16; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 16.0;
+      float radius = strength * 1.2; // Increased radius
 
       vec2 offset = vec2(cos(angle), sin(angle)) * radius;
       vec4 sample = texture2D(u_image, v_texCoord + offset);
@@ -386,11 +383,11 @@ export const softLightShader = `
     }
     primaryGlow /= primaryTotal;
 
-    // Secondary glow - wider, softer
-    int secondarySamples = 16;
-    for (int i = 0; i < 16; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 16.0;
-      float radius = strength * 1.5;
+    // Secondary glow - wider spread (halation effect)
+    int secondarySamples = 20;
+    for (int i = 0; i < 20; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 20.0;
+      float radius = strength * 3.0; // Much wider spread
 
       vec2 offset = vec2(cos(angle), sin(angle)) * radius;
       vec4 sample = texture2D(u_image, v_texCoord + offset);
@@ -400,15 +397,42 @@ export const softLightShader = `
     }
     secondaryGlow /= secondaryTotal;
 
-    // Combine: original + primary glow + secondary glow
-    float glowStrength = (luminance - 0.6) * 2.5; // 0-1 range for bright areas
+    // Tertiary glow - very wide atmospheric glow
+    int tertiarySamples = 24;
+    for (int i = 0; i < 24; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 24.0;
+      float radius = strength * 6.0; // Very wide for atmosphere
 
+      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+
+      tertiaryGlow += sample;
+      tertiaryTotal += 1.0;
+    }
+    tertiaryGlow /= tertiaryTotal;
+
+    // Lower threshold so more lights get bloom (0.35 instead of 0.6)
+    float glowStrength = max(0.0, (luminance - 0.35) * 1.5);
+
+    // Start with original
     vec4 result = original;
-    result = mix(result, primaryGlow, glowStrength * 0.4 * u_intensity);
-    result = mix(result, secondaryGlow, glowStrength * 0.2 * u_intensity);
 
-    // Slight color boost in glow
-    result.rgb = mix(result.rgb, result.rgb * 1.1, glowStrength * u_intensity * 0.3);
+    // Layer the glows with aggressive strength
+    result = mix(result, primaryGlow, glowStrength * 0.7 * u_intensity);
+    result = mix(result, secondaryGlow, glowStrength * 0.5 * u_intensity);
+    result = mix(result, tertiaryGlow, glowStrength * 0.3 * u_intensity);
+
+    // Halation color bleed - boost warm tones in highlights
+    if (luminance > 0.4) {
+      float halation = (luminance - 0.4) * 1.5;
+
+      // Boost red/yellow channels for warm halation
+      result.r = mix(result.r, result.r * 1.3, halation * u_intensity * 0.6);
+      result.g = mix(result.g, result.g * 1.2, halation * u_intensity * 0.5);
+
+      // Add overall brightness to simulate light bleed
+      result.rgb = mix(result.rgb, result.rgb * 1.4, halation * u_intensity * 0.4);
+    }
 
     gl_FragColor = result;
   }
