@@ -374,21 +374,22 @@ export default function Home() {
           >
             {/* Swipe Handle */}
             <div
-              className="flex justify-center py-2 cursor-pointer"
-              onPointerDown={(e) => {
-                const startY = e.clientY;
-                const handleMove = (moveEvent: PointerEvent) => {
-                  const deltaY = moveEvent.clientY - startY;
-                  if (deltaY > 50) setDockMinimized(true);
-                  else if (deltaY < -50) setDockMinimized(false);
+              className="flex justify-center py-3 cursor-pointer touch-none"
+              onTouchStart={(e) => {
+                const startY = e.touches[0].clientY;
+                const handleMove = (moveEvent: TouchEvent) => {
+                  const deltaY = moveEvent.touches[0].clientY - startY;
+                  if (deltaY > 80) setDockMinimized(true);
+                  else if (deltaY < -80) setDockMinimized(false);
                 };
-                const handleUp = () => {
-                  window.removeEventListener('pointermove', handleMove);
-                  window.removeEventListener('pointerup', handleUp);
+                const handleEnd = () => {
+                  document.removeEventListener('touchmove', handleMove);
+                  document.removeEventListener('touchend', handleEnd);
                 };
-                window.addEventListener('pointermove', handleMove);
-                window.addEventListener('pointerup', handleUp);
+                document.addEventListener('touchmove', handleMove);
+                document.addEventListener('touchend', handleEnd);
               }}
+              onClick={() => setDockMinimized(!dockMinimized)}
             >
               <div className="w-10 h-1 bg-white/30 rounded-full" />
             </div>
@@ -456,28 +457,42 @@ export default function Home() {
               </div>
             )}
 
-            {/* Always Visible: Save & New Buttons */}
+            {/* Always Visible: Share & New Buttons */}
             <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-4 border-t border-white/10'}`}>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!processedCanvas) return;
-                    processedCanvas.toBlob((blob) => {
-                      if (!blob) return;
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `slow-shutter-${Date.now()}.jpg`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }, 'image/jpeg', 0.95);
+                    // Mobile: Use native share sheet to save to Photos
+                    if (navigator.share && navigator.canShare) {
+                      try {
+                        const blob = await new Promise<Blob>((resolve) => {
+                          processedCanvas.toBlob((blob) => {
+                            if (blob) resolve(blob);
+                          }, 'image/jpeg', 0.95);
+                        });
+
+                        const file = new File([blob], `slow-shutter-${Date.now()}.jpg`, {
+                          type: 'image/jpeg',
+                        });
+
+                        if (navigator.canShare({ files: [file] })) {
+                          await navigator.share({
+                            files: [file],
+                            title: 'Slow Shutter',
+                          });
+                        }
+                      } catch (error: any) {
+                        if (error.name !== 'AbortError') {
+                          console.error('Share failed:', error);
+                        }
+                      }
+                    }
                   }}
                   className="px-4 py-3 text-sm font-medium bg-white text-black
                              rounded-lg transition-all active:scale-[0.98]"
                 >
-                  Save
+                  Share
                 </button>
                 <button
                   onClick={handleReset}
