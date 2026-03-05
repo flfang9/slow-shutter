@@ -45,6 +45,7 @@ export default function Home() {
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialProcessingDone = useRef(false);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -153,14 +154,13 @@ export default function Home() {
 
   // Initial processing when image is first uploaded
   useEffect(() => {
-    if (!uploadedImage || !previewImage) return;
+    if (!uploadedImage || !previewImage || initialProcessingDone.current) return;
 
-    // Only process once on initial upload
+    initialProcessingDone.current = true;
     processPreview();
-    const timeout = setTimeout(processFullQuality, 300);
-    return () => clearTimeout(timeout);
+    setTimeout(processFullQuality, 300);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedImage]);
+  }, [uploadedImage, previewImage]);
 
   useEffect(() => {
     if (previewImage) processPreview();
@@ -241,6 +241,7 @@ export default function Home() {
     setIntensity(50);
     setError(null);
     setDockMinimized(false);
+    initialProcessingDone.current = false; // Reset for next upload
   };
 
   const handleSliderDragStart = (e: React.PointerEvent) => {
