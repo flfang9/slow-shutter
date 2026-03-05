@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { motion, useDragControls, PanInfo } from 'framer-motion';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film } from 'lucide-react';
 import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
@@ -23,11 +23,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const DRAWER_HEIGHTS = {
-  minimized: 80,
-  active: 300,
-};
-
 export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
@@ -37,13 +32,11 @@ export default function Home() {
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
-  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -189,21 +182,10 @@ export default function Home() {
     setError(null);
   };
 
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const velocity = info.velocity.y;
-    const offset = info.offset.y;
-
-    if (velocity > 500 || offset < -50) {
-      setDrawerOpen(true);
-    } else if (velocity < -500 || offset > 50) {
-      setDrawerOpen(false);
-    }
-  };
-
   return (
     <>
       {/* Desktop Layout - ZERO SHIFT */}
-      <div className="hidden md:flex h-screen overflow-hidden">
+      <div className="hidden md:flex h-screen overflow-hidden max-h-screen">
         {/* Image Container - LEFT 70% */}
         <div className="w-[70%] h-screen overflow-hidden flex items-center justify-center bg-[#050505]">
           {!uploadedImage && (
@@ -265,10 +247,10 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Mobile Layout - DRAGGABLE DRAWER */}
-      <div className="md:hidden h-screen overflow-hidden bg-black relative">
-        {/* Fixed Full-Screen Image */}
-        <div className="fixed inset-0 flex items-center justify-center bg-[#050505]">
+      {/* Mobile Layout - Instagram-Style Dock */}
+      <div className="block md:hidden h-screen overflow-hidden bg-black relative">
+        {/* Full-Screen Image Container - z-0 Layer */}
+        <div className="fixed inset-0 z-0 flex items-center justify-center bg-[#050505]">
           {!uploadedImage && (
             <div className="max-w-sm w-full px-4 z-10">
               <DropZone onFileSelect={handleFileSelect} />
@@ -284,7 +266,7 @@ export default function Home() {
               <img
                 src={processedCanvas.toDataURL('image/jpeg', 0.95)}
                 alt="Processed"
-                className="max-h-[90vh] max-w-[95%] object-contain transition-none cursor-pointer select-none"
+                className="w-full h-full object-contain transition-none select-none"
                 draggable={false}
                 onPointerDown={handleCompareStart}
                 onPointerUp={handleCompareEnd}
@@ -294,27 +276,87 @@ export default function Home() {
           )}
         </div>
 
-        {/* Draggable Control Drawer */}
+        {/* Fixed Bottom Dock - z-10 Layer */}
         {uploadedImage && (
-          <motion.div
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.1}
-            onDragEnd={handleDragEnd}
-            animate={{
-              y: drawerOpen ? -DRAWER_HEIGHTS.active : -DRAWER_HEIGHTS.minimized,
-            }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="mobile-drawer fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-2xl
-                       border-t border-white/10 rounded-t-3xl touch-none"
-            style={{ height: DRAWER_HEIGHTS.active + 100 }}
-          >
-            {/* Handle */}
-            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-4" />
+          <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/40 backdrop-blur-xl border-t border-white/10">
+            <div className="px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
+              {/* Row 1: Effect Icons (Horizontal Scroll) */}
+              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
+                {[
+                  { id: 'lateral-motion', icon: MoveRight },
+                  { id: 'vertical-zoom', icon: Maximize },
+                  { id: 'handheld-drift', icon: Wind },
+                  { id: 'cinematic-swirl', icon: RotateCw },
+                  { id: 'soft-light', icon: Sparkles },
+                  { id: 'film-grain', icon: Film },
+                ].map((effect) => {
+                  const Icon = effect.icon;
+                  return (
+                    <button
+                      key={effect.id}
+                      onClick={() => setSelectedEffect(effect.id as EffectType)}
+                      className={`
+                        snap-center flex-shrink-0 w-[50px] h-[50px] rounded-lg
+                        border transition-all active:scale-95 flex items-center justify-center
+                        ${
+                          selectedEffect === effect.id
+                            ? 'border-white bg-white/10'
+                            : 'border-white/10 bg-white/5'
+                        }
+                      `}
+                    >
+                      <Icon
+                        className={`w-5 h-5 ${
+                          selectedEffect === effect.id ? 'text-white' : 'text-white/50'
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Minimized State - Just Save Button */}
-            {!drawerOpen && (
-              <div className="px-6">
+              {/* Row 2: Intensity Slider */}
+              <div className="px-2">
+                <LensDial value={intensity} onChange={setIntensity} />
+              </div>
+
+              {/* Row 3: Share | Save | New */}
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={async () => {
+                    if (!processedCanvas) return;
+                    // Mobile: Use native share sheet
+                    if (navigator.share && navigator.canShare) {
+                      try {
+                        const blob = await new Promise<Blob>((resolve) => {
+                          processedCanvas.toBlob((blob) => {
+                            if (blob) resolve(blob);
+                          }, 'image/jpeg', 0.95);
+                        });
+
+                        const file = new File([blob], `slow-shutter-${Date.now()}.jpg`, {
+                          type: 'image/jpeg',
+                        });
+
+                        if (navigator.canShare({ files: [file] })) {
+                          await navigator.share({
+                            files: [file],
+                            title: 'Slow Shutter',
+                          });
+                        }
+                      } catch (error: any) {
+                        if (error.name !== 'AbortError') {
+                          console.error('Share failed:', error);
+                        }
+                      }
+                    }
+                  }}
+                  className="px-4 py-3 text-sm font-medium text-white/80
+                             border border-white/10 rounded-lg transition-all
+                             hover:bg-white/5 active:scale-[0.98]"
+                >
+                  Share
+                </button>
                 <button
                   onClick={() => {
                     if (!processedCanvas) return;
@@ -324,34 +366,28 @@ export default function Home() {
                       const a = document.createElement('a');
                       a.href = url;
                       a.download = `slow-shutter-${Date.now()}.jpg`;
+                      document.body.appendChild(a);
                       a.click();
+                      document.body.removeChild(a);
                       URL.revokeObjectURL(url);
                     }, 'image/jpeg', 0.95);
                   }}
-                  className="w-full px-4 py-3 text-sm font-medium bg-white text-black
+                  className="px-4 py-3 text-sm font-medium bg-white text-black
                              rounded-lg transition-all active:scale-[0.98]"
                 >
                   Save
                 </button>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-3 text-sm font-medium text-white/80
+                             border border-white/10 rounded-lg transition-all
+                             hover:bg-white/5 active:scale-[0.98]"
+                >
+                  New
+                </button>
               </div>
-            )}
-
-            {/* Active State - Full Controls */}
-            {drawerOpen && (
-              <div className="px-6 pb-8 space-y-4">
-                <EffectSelector
-                  selectedEffect={selectedEffect}
-                  onEffectSelect={setSelectedEffect}
-                />
-
-                <LensDial value={intensity} onChange={setIntensity} />
-
-                <div className="pt-2">
-                  <ExportControls canvas={processedCanvas} onReset={handleReset} />
-                </div>
-              </div>
-            )}
-          </motion.div>
+            </div>
+          </div>
         )}
       </div>
 
