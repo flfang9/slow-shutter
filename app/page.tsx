@@ -45,6 +45,12 @@ export default function Home() {
   const processorRef = useRef<EffectProcessor | null>(null);
   const previewProcessorRef = useRef<EffectProcessor | null>(null);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intensityRef = useRef(intensity);
+  const effectRef = useRef(selectedEffect);
+
+  // Keep refs in sync
+  useEffect(() => { intensityRef.current = intensity; }, [intensity]);
+  useEffect(() => { effectRef.current = selectedEffect; }, [selectedEffect]);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -121,25 +127,29 @@ export default function Home() {
     }
   }, [selectedEffect, intensity]);
 
-  const processPreview = useCallback(async () => {
+  const processPreview = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
     if (!previewImage || !previewProcessorRef.current) return;
     try {
       const result = await previewProcessorRef.current.applyEffect(
         previewImage,
-        selectedEffect,
-        intensity
+        effectOverride ?? effectRef.current,
+        intensityOverride ?? intensityRef.current
       );
       setProcessedCanvas(result);
     } catch (err) {
       console.error('Preview error:', err);
     }
-  }, [previewImage, selectedEffect, intensity]);
+  }, [previewImage]);
 
-  const processFullQuality = useCallback(async () => {
+  const processFullQuality = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
     if (!uploadedImage || !processorRef.current || isProcessing) return;
     setIsProcessing(true);
     try {
-      const result = await processorRef.current.applyEffect(uploadedImage, selectedEffect, intensity);
+      const result = await processorRef.current.applyEffect(
+        uploadedImage,
+        effectOverride ?? effectRef.current,
+        intensityOverride ?? intensityRef.current
+      );
       setProcessedCanvas(result);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Processing failed';
@@ -149,30 +159,32 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
     }
-  }, [uploadedImage, selectedEffect, intensity, isProcessing]);
+  }, [uploadedImage, isProcessing]);
 
   useEffect(() => {
-    if (previewImage) processPreview();
+    if (previewImage) processPreview(selectedEffect, intensity);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
 
   useEffect(() => {
     if (!uploadedImage) return;
-    const timeout = setTimeout(processFullQuality, 300);
+    const timeout = setTimeout(() => processFullQuality(selectedEffect, intensity), 300);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
 
+  // Real-time preview update when intensity changes
   useEffect(() => {
     if (!previewImage) return;
-    const timeout = setTimeout(processPreview, 100);
-    return () => clearTimeout(timeout);
+    // Process immediately for real-time feedback
+    processPreview(selectedEffect, intensity);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
 
+  // Debounced full quality update when intensity changes
   useEffect(() => {
     if (!uploadedImage) return;
-    const timeout = setTimeout(processFullQuality, 1000);
+    const timeout = setTimeout(() => processFullQuality(selectedEffect, intensity), 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
