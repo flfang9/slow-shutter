@@ -61,8 +61,29 @@ export async function loadImage(file: File): Promise<HTMLImageElement> {
     const url = URL.createObjectURL(processedFile);
 
     img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
+      // Convert to data URL before revoking blob URL
+      // This ensures img.src remains valid after blob is revoked
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+        // Now we can safely revoke the blob URL
+        URL.revokeObjectURL(url);
+
+        // Create new image with data URL
+        const finalImg = new Image();
+        finalImg.onload = () => resolve(finalImg);
+        finalImg.onerror = () => reject(new Error('Failed to load data URL'));
+        finalImg.src = dataUrl;
+      } else {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to create canvas context'));
+      }
     };
 
     img.onerror = () => {
