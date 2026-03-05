@@ -10,13 +10,23 @@ export const vertexShaderSource = `
   }
 `;
 
-// Lateral Motion Blur - horizontal directional blur with ghosting
+// Lateral Motion Blur - horizontal directional blur with ghosting + Comet Effect
+// Comet Effect: Brighter at start/end of motion, dimmer in middle (variable camera velocity)
 export const lateralMotionShader = `
   precision mediump float;
   uniform sampler2D u_image;
   uniform float u_intensity;
   uniform vec2 u_resolution;
   varying vec2 v_texCoord;
+
+  // Cubic bezier approximation for comet curve
+  float cometBezier(float t) {
+    // U-shape: bright at edges, dim in middle (simulates acceleration/deceleration)
+    float t2 = t * 2.0 - 1.0; // Remap to -1 to 1
+    float u = t2 * t2;        // Parabola (0 at edges, 1 at middle)
+    float cubic = u * u * (3.0 - 2.0 * u);
+    return 1.0 - cubic * 0.55; // 0.45 at middle, 1.0 at edges
+  }
 
   void main() {
     if (u_intensity < 0.00001) {
@@ -29,8 +39,8 @@ export const lateralMotionShader = `
     float total = 0.0;
 
     // Motion sweep with ghosting echoes
-    int samples = int(mix(8.0, 30.0, u_intensity));
-    float offset = mix(0.005, 0.04, u_intensity);
+    int samples = int(mix(10.0, 32.0, u_intensity));
+    float offset = mix(0.006, 0.05, u_intensity);
 
     // Create ghosting effect - multiple discrete echoes
     int ghosts = int(mix(2.0, 6.0, u_intensity));
@@ -39,12 +49,18 @@ export const lateralMotionShader = `
       if (g >= ghosts) break;
 
       float ghostOffset = float(g) * offset / float(ghosts);
-      float ghostOpacity = exp(-float(g) * 1.5);
+      float ghostOpacity = exp(-float(g) * 1.4);
 
-      for (int i = 0; i < 30; i++) {
+      for (int i = 0; i < 32; i++) {
         if (i >= samples) break;
 
         float t = float(i) / float(samples - 1);
+
+        // === COMET EFFECT: Bezier curve opacity ===
+        // Brighter at start (t=0) and end (t=1), dimmer in middle (t=0.5)
+        // Simulates variable camera velocity during motion
+        float cometCurve = cometBezier(t);
+
         float x = (t - 0.5) * offset + ghostOffset;
         vec2 sampleCoord = v_texCoord + vec2(x, 0.0);
 
@@ -52,7 +68,7 @@ export const lateralMotionShader = `
 
         // Luminance-weighted sampling (brighter areas trail more)
         float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-        float weight = mix(0.5, 1.0, luminance) * ghostOpacity;
+        float weight = mix(0.5, 1.0, luminance) * ghostOpacity * cometCurve;
 
         color += sample * weight;
         total += weight;
@@ -493,8 +509,10 @@ export const softLightShader = `
   }
 `;
 
-// Light Trails - Directional Accumulation with Chromatic Bleed
+// Light Trails - Directional Accumulation with Chromatic Bleed + Comet Effect
 // Simulates slow shutter light streaks with 10 echoes
+// Phase 1 (0-65%): Brightness boost only - lights get "hotter"
+// Phase 2 (65-100%): Trails fade in with comet opacity curve (variable velocity)
 export const lightTrailsShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -502,6 +520,17 @@ export const lightTrailsShader = `
   uniform vec2 u_resolution;
   uniform float u_angle;      // Trail direction 0-360 degrees
   varying vec2 v_texCoord;
+
+  // Cubic bezier approximation for comet curve
+  float cometBezier(float t) {
+    // Control points create U-shape: bright at start, dim in middle, bright at end
+    // Simulates variable camera velocity (acceleration/deceleration)
+    float t2 = t * 2.0 - 1.0; // Remap to -1 to 1
+    float u = t2 * t2;        // Parabola (0 at edges, 1 at middle)
+    // Cubic ease for smoother falloff
+    float cubic = u * u * (3.0 - 2.0 * u);
+    return 1.0 - cubic * 0.65; // 0.35 at middle, 1.0 at edges
+  }
 
   void main() {
     vec4 original = texture2D(u_image, v_texCoord);
@@ -511,8 +540,35 @@ export const lightTrailsShader = `
       return;
     }
 
-    // === STEP 1: Create Heat Map (only brightest pixels > 80%) ===
     float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+
+    // === PHASE 1: Brightness boost (0-65%) ===
+    // Lights get progressively "hotter" before trails appear
+    // Creates anticipation and visual coherence
+    float brightnessPhase = smoothstep(0.0, 0.65, u_intensity);
+    float brightBoost = mix(1.0, 1.5, brightnessPhase);
+
+    // Graduated bright mask - more aggressive at higher intensities
+    float brightThreshold = mix(0.55, 0.45, brightnessPhase);
+    float brightMaskOrig = smoothstep(brightThreshold, 0.85, luminance);
+
+    vec3 boostedOriginal = original.rgb;
+    // Warm shift on boosted highlights (subtle)
+    vec3 warmBoost = original.rgb;
+    warmBoost.r *= 1.08;
+    warmBoost.b *= 0.95;
+    boostedOriginal = mix(original.rgb, warmBoost, brightMaskOrig * brightnessPhase * 0.5);
+    boostedOriginal += original.rgb * brightMaskOrig * (brightBoost - 1.0) * 0.9;
+
+    // === PHASE 2: Trails (65-100%) ===
+    // Sharp transition - trails "click on" at 65%
+    float trailPhase = smoothstep(0.62, 0.75, u_intensity);
+
+    if (trailPhase < 0.01) {
+      // No trails yet, just brightness boost
+      gl_FragColor = vec4(clamp(boostedOriginal, 0.0, 1.0), original.a);
+      return;
+    }
 
     // Convert angle to radians and calculate direction vector
     float angleRad = u_angle * 0.017453292519943295; // PI / 180
@@ -521,56 +577,59 @@ export const lightTrailsShader = `
     // Aspect ratio correction for proper diagonal trails
     vec2 aspectCorrection = vec2(1.0, u_resolution.x / u_resolution.y);
 
-    // Trail length scales with intensity
-    float trailLength = mix(0.03, 0.15, u_intensity);
+    // Trail length ramps up quickly once trails appear
+    float trailLength = mix(0.03, 0.22, trailPhase * trailPhase); // Quadratic ramp
 
-    // === STEP 2: Directional Accumulation (10 echoes) ===
+    // === Directional Accumulation with Comet Effect (12 echoes for smoother curve) ===
     vec3 trailAccum = vec3(0.0);
+    float totalWeight = 0.0;
 
-    // 10 echoes, each with 10% less opacity
-    for (int i = 0; i < 10; i++) {
-      float t = float(i) / 9.0; // 0.0 to 1.0
+    for (int i = 0; i < 12; i++) {
+      float t = float(i) / 11.0; // 0.0 to 1.0
 
-      // Echo opacity: 100%, 90%, 80%, ... 10%
-      float echoOpacity = 1.0 - t * 0.9;
+      // === COMET EFFECT: Bezier curve opacity ===
+      // Brighter at start (t=0) and end (t=1), dimmer in middle (t=0.5)
+      // Creates the "variable camera velocity" look
+      float cometCurve = cometBezier(t);
+
+      // Base opacity with slight front-weighting
+      float baseOpacity = 1.0 - t * 0.5;
+      float echoOpacity = baseOpacity * cometCurve;
 
       // Offset position along trail direction
       vec2 offset = direction * aspectCorrection * t * trailLength;
       vec4 sample = texture2D(u_image, v_texCoord + offset);
 
-      // Only bright pixels contribute (luminance > 0.75)
+      // Only bright pixels contribute - threshold loosens as trails intensify
       float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-      float brightMask = smoothstep(0.70, 0.90, sampleLum);
+      float trailThreshold = mix(0.60, 0.50, trailPhase);
+      float brightMask = smoothstep(trailThreshold, 0.90, sampleLum);
 
-      // === STEP 3: Chromatic Bleed (RGB Split) ===
-      // Start of trail: warm (original color)
-      // End of trail: cooler (shift toward cyan/blue)
+      // === Chromatic Bleed (RGB Split) - Enhanced ===
       vec3 chromaShift = sample.rgb;
+      float chromaAmount = t * 0.55 * trailPhase;
+      // Red leads, blue trails - classic light streak look
+      chromaShift.r *= 1.0 - chromaAmount * 0.4;
+      chromaShift.g *= 1.0 + chromaAmount * 0.1;
+      chromaShift.b *= 1.0 + chromaAmount * 0.55;
 
-      // Progressive color shift: reduce red, boost blue/cyan at trail end
-      float chromaAmount = t * 0.4; // Max 40% shift at end
-      chromaShift.r *= 1.0 - chromaAmount * 0.5;  // Reduce red
-      chromaShift.g *= 1.0 + chromaAmount * 0.1;  // Slight green boost
-      chromaShift.b *= 1.0 + chromaAmount * 0.4;  // Boost blue/cyan
-
-      // Accumulate with opacity falloff
-      trailAccum += chromaShift * brightMask * echoOpacity;
+      // Accumulate with comet opacity
+      float weight = brightMask * echoOpacity;
+      trailAccum += chromaShift * weight;
+      totalWeight += weight;
     }
 
-    // Normalize by number of echoes
-    trailAccum /= 10.0;
+    if (totalWeight > 0.01) {
+      trailAccum /= totalWeight;
+    }
 
-    // === STEP 4: Composite with Screen/Additive blend ===
-    // Screen blend: 1 - (1 - base) * (1 - blend)
-    // This preserves dark areas while adding glow
+    // === Composite with Screen blend ===
+    float blendStrength = trailPhase * 1.6;
+    vec3 screenBlend = 1.0 - (1.0 - boostedOriginal) * (1.0 - trailAccum * blendStrength);
 
-    float blendStrength = u_intensity * 1.2;
-    vec3 screenBlend = 1.0 - (1.0 - original.rgb) * (1.0 - trailAccum * blendStrength);
-
-    // Mix between original and screen blend based on trail presence
-    // Also add some direct additive for extra punch on bright trails
     vec3 result = screenBlend;
-    result += trailAccum * u_intensity * 0.3; // Additive boost
+    // Additive glow on trails
+    result += trailAccum * trailPhase * trailPhase * 0.4;
 
     gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
   }

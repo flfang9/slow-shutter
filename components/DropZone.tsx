@@ -68,24 +68,24 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
         </h2>
 
         {/* Pills */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-center">
           <span className="px-2 py-1 text-[10px] font-medium text-white/40
                           bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
             JPG
           </span>
           <span className="px-2 py-1 text-[10px] font-medium text-white/40
                           bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-            HEIC
+            PNG
           </span>
           <span className="px-2 py-1 text-[10px] font-medium text-white/40
                           bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-            Max 4kpx
+            HEIC
           </span>
         </div>
 
         <input
           type="file"
-          accept=".jpg,.jpeg,.heic,.heif,image/jpeg,image/heic,image/heif"
+          accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
           onChange={handleFileInput}
           className="hidden"
         />

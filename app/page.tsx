@@ -51,6 +51,7 @@ export default function Home() {
   const rafRef = useRef<number | null>(null);
   const isPreviewingRef = useRef(false);
   const activeTouchListenersRef = useRef<Array<() => void>>([]);
+  const prevIntensityRef = useRef(intensity);
 
   // Clean up active touch listeners on unmount
   useEffect(() => {
@@ -63,6 +64,22 @@ export default function Home() {
   // Keep refs in sync
   useEffect(() => { intensityRef.current = intensity; }, [intensity]);
   useEffect(() => { effectRef.current = selectedEffect; }, [selectedEffect]);
+
+  // Haptic feedback when crossing threshold on mobile (light-trails at 65%)
+  useEffect(() => {
+    if (selectedEffect === 'light-trails' && isDraggingSlider) {
+      const threshold = 65;
+      const crossedUp = prevIntensityRef.current < threshold && intensity >= threshold;
+      const crossedDown = prevIntensityRef.current >= threshold && intensity < threshold;
+
+      if (crossedUp || crossedDown) {
+        if ('vibrate' in navigator) {
+          navigator.vibrate(10);
+        }
+      }
+    }
+    prevIntensityRef.current = intensity;
+  }, [intensity, selectedEffect, isDraggingSlider]);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -480,7 +497,7 @@ export default function Home() {
                 />
               </div>
 
-              <LensDial value={intensity} onChange={setIntensity} />
+              <LensDial value={intensity} onChange={setIntensity} effect={selectedEffect} />
 
               {/* Compare Button */}
               <div className="pt-4">
@@ -653,12 +670,34 @@ export default function Home() {
                   onPointerUp={handleSliderDragEnd}
                   onPointerLeave={handleSliderDragEnd}
                 >
-                  <div className="text-center text-xs text-white/40 mb-2">
-                    {intensity}%
+                  <div className="flex justify-center items-center gap-2 mb-2">
+                    <span className="text-xs text-white/40 tabular-nums">
+                      {intensity}%
+                    </span>
+                    {selectedEffect === 'light-trails' && (
+                      <span className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded transition-all ${
+                        intensity >= 65
+                          ? 'bg-white/15 text-white/70'
+                          : 'bg-white/5 text-white/30'
+                      }`}>
+                        {intensity >= 65 ? 'Trails' : 'Glow'}
+                      </span>
+                    )}
                   </div>
-                  <div className="h-0.5 bg-white/10 rounded-full">
+                  <div className="h-0.5 bg-white/10 rounded-full relative">
+                    {/* Threshold marker for light-trails */}
+                    {selectedEffect === 'light-trails' && (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-px h-2 bg-white/30 z-10"
+                        style={{ left: '65%' }}
+                      />
+                    )}
                     <div
-                      className="h-full bg-white rounded-full transition-all"
+                      className={`h-full rounded-full transition-all ${
+                        selectedEffect === 'light-trails' && intensity >= 65
+                          ? 'bg-white/90'
+                          : 'bg-white/60'
+                      }`}
                       style={{ width: `${intensity}%` }}
                     />
                   </div>

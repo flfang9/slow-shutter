@@ -1,17 +1,20 @@
 const MAX_DIMENSION = 4000;
-const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/heic', 'image/heif'];
+const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
+const RAW_EXTENSIONS = ['.cr2', '.cr3', '.nef', '.arw', '.dng', '.raf', '.orf', '.rw2', '.pef', '.srw'];
 
 export function validateImageFile(file: File): { valid: boolean; error?: string } {
   // Check file type
   const fileType = file.type.toLowerCase();
   const fileName = file.name.toLowerCase();
   const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || fileType === 'image/heic' || fileType === 'image/heif';
-  const isJpeg = ACCEPTED_TYPES.includes(fileType) || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+  const isJpeg = fileType === 'image/jpeg' || fileType === 'image/jpg' || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+  const isPng = fileType === 'image/png' || fileName.endsWith('.png');
+  const isRaw = RAW_EXTENSIONS.some(ext => fileName.endsWith(ext));
 
-  if (!isJpeg && !isHeic) {
+  if (!isJpeg && !isPng && !isHeic && !isRaw) {
     return {
       valid: false,
-      error: 'Only JPEG and HEIC images are supported.',
+      error: 'Only JPEG, PNG, HEIC, and RAW images are supported.',
     };
   }
 
@@ -26,8 +29,62 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
   return { valid: true };
 }
 
+// Extract embedded JPEG preview from RAW file
+async function extractRawPreview(file: File): Promise<Blob | null> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    // Look for JPEG markers (FFD8 = start, FFD9 = end)
+    let jpegStart = -1;
+    let jpegEnd = -1;
+
+    for (let i = 0; i < bytes.length - 1; i++) {
+      if (bytes[i] === 0xFF && bytes[i + 1] === 0xD8) {
+        // Found JPEG start
+        if (jpegStart === -1) jpegStart = i;
+      }
+      if (bytes[i] === 0xFF && bytes[i + 1] === 0xD9) {
+        // Found JPEG end
+        jpegEnd = i + 2;
+        // Look for a reasonably sized preview (> 50KB)
+        if (jpegStart !== -1 && (jpegEnd - jpegStart) > 50000) {
+          break;
+        }
+      }
+    }
+
+    if (jpegStart !== -1 && jpegEnd !== -1 && jpegEnd > jpegStart) {
+      const jpegData = bytes.slice(jpegStart, jpegEnd);
+      return new Blob([jpegData], { type: 'image/jpeg' });
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Failed to extract RAW preview:', error);
+    return null;
+  }
+}
+
 export async function loadImage(file: File): Promise<HTMLImageElement> {
   let processedFile = file;
+
+  // Check if it's a RAW file
+  const fileName = file.name.toLowerCase();
+  const isRaw = RAW_EXTENSIONS.some(ext => fileName.endsWith(ext));
+
+  if (isRaw) {
+    console.log('RAW file detected, extracting preview...');
+    const preview = await extractRawPreview(file);
+    if (preview) {
+      processedFile = new File([preview], file.name.replace(/\.[^.]+$/, '.jpg'), {
+        type: 'image/jpeg',
+      });
+      console.log('RAW preview extracted successfully');
+    } else {
+      throw new Error('Could not extract preview from RAW file. Try converting to JPEG first.');
+    }
+  }
 
   // Convert HEIC to JPEG if needed
   const fileName = file.name.toLowerCase();
