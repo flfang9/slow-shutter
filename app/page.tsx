@@ -151,10 +151,19 @@ export default function Home() {
     }
   }, [uploadedImage, selectedEffect, intensity, isProcessing]);
 
+  // Initial processing when image is first uploaded
+  useEffect(() => {
+    if (uploadedImage && previewImage) {
+      processPreview();
+      processFullQuality();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedImage, previewImage]);
+
   useEffect(() => {
     if (previewImage) processPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEffect, previewImage]);
+  }, [selectedEffect]);
 
   useEffect(() => {
     if (!uploadedImage) return;
