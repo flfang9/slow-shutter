@@ -374,7 +374,8 @@ export const contrastCurveShader = `
 `;
 
 // Soft Light - Halation + edge glow (Film stock light bleed)
-// Soft Light / Dream Bloom - Vintage diffusion filter
+// Soft Light - DaVinci-style Halation + Secondary Glow
+// Bright lights get warm glow, dark areas stay dark
 export const softLightShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -390,72 +391,103 @@ export const softLightShader = `
       return;
     }
 
-    vec2 pixelSize = 1.0 / u_resolution;
+    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    // === STEP 1: Create bloom layer from bright areas (luminance > 0.65) ===
-    vec4 bloomLayer = vec4(0.0);
-    float totalWeight = 0.0;
+    // === HALATION: Warm glow bleeding from bright areas ===
+    vec3 halation = vec3(0.0);
+    float halationWeight = 0.0;
 
-    // Heavy Gaussian-like blur (simulated with multi-ring sampling)
-    // Blur radius scales with intensity: 20px to 50px equivalent
-    float blurRadius = mix(0.02, 0.06, u_intensity);
+    // Inner halation ring (tighter, more saturated)
+    float innerRadius = mix(0.008, 0.025, u_intensity);
+    for (int i = 0; i < 16; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 16.0;
+      vec2 offset = vec2(cos(angle), sin(angle)) * innerRadius;
 
-    // Sample in concentric rings for Gaussian approximation
-    for (int ring = 0; ring < 4; ring++) {
-      float ringRadius = blurRadius * (float(ring) + 1.0) / 4.0;
-      float ringWeight = 1.0 - float(ring) * 0.2; // Gaussian falloff
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
 
-      for (int i = 0; i < 12; i++) {
-        float angle = float(i) * 3.14159 * 2.0 / 12.0 + float(ring) * 0.3;
+      // Only very bright pixels contribute (>75%)
+      float brightMask = smoothstep(0.70, 0.95, sampleLum);
+
+      // Warm tint: shift toward orange/gold
+      vec3 warmSample = sample.rgb;
+      warmSample.r *= 1.3;
+      warmSample.g *= 1.05;
+      warmSample.b *= 0.7;
+
+      halation += warmSample * brightMask;
+      halationWeight += brightMask;
+    }
+
+    // Outer halation ring (wider, softer)
+    float outerRadius = mix(0.02, 0.06, u_intensity);
+    for (int i = 0; i < 24; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 24.0;
+      vec2 offset = vec2(cos(angle), sin(angle)) * outerRadius;
+
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+
+      // Slightly lower threshold for outer glow
+      float brightMask = smoothstep(0.65, 0.90, sampleLum);
+
+      // Even warmer tint for outer glow
+      vec3 warmSample = sample.rgb;
+      warmSample.r *= 1.4;
+      warmSample.g *= 1.0;
+      warmSample.b *= 0.6;
+
+      halation += warmSample * brightMask * 0.6; // Softer weight
+      halationWeight += brightMask * 0.6;
+    }
+
+    // === SECONDARY GLOW: Extended soft bloom ===
+    vec3 secondaryGlow = vec3(0.0);
+    float glowWeight = 0.0;
+
+    float glowRadius = mix(0.04, 0.12, u_intensity);
+    for (int ring = 0; ring < 3; ring++) {
+      float ringRadius = glowRadius * (float(ring) + 1.0) / 3.0;
+      float ringFalloff = 1.0 - float(ring) * 0.35;
+
+      for (int i = 0; i < 16; i++) {
+        float angle = float(i) * 3.14159 * 2.0 / 16.0 + float(ring) * 0.4;
         vec2 offset = vec2(cos(angle), sin(angle)) * ringRadius;
 
-        vec4 sampleColor = texture2D(u_image, v_texCoord + offset);
-        float sampleLum = dot(sampleColor.rgb, vec3(0.299, 0.587, 0.114));
+        vec4 sample = texture2D(u_image, v_texCoord + offset);
+        float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
 
-        // Luminance threshold: only keep pixels > 65% brightness
-        float brightMask = smoothstep(0.55, 0.75, sampleLum);
+        // Only bright areas
+        float brightMask = smoothstep(0.60, 0.85, sampleLum);
 
-        // Add to bloom with Gaussian weight
-        bloomLayer += sampleColor * brightMask * ringWeight;
-        totalWeight += brightMask * ringWeight;
+        // Slight warm tint
+        vec3 warmSample = sample.rgb;
+        warmSample.r *= 1.15;
+        warmSample.g *= 1.02;
+        warmSample.b *= 0.85;
+
+        secondaryGlow += warmSample * brightMask * ringFalloff;
+        glowWeight += brightMask * ringFalloff;
       }
     }
 
-    // Also sample center
-    float centerLum = dot(original.rgb, vec3(0.299, 0.587, 0.114));
-    float centerMask = smoothstep(0.55, 0.75, centerLum);
-    bloomLayer += original * centerMask * 1.5;
-    totalWeight += centerMask * 1.5;
+    // Normalize
+    if (halationWeight > 0.01) halation /= halationWeight;
+    if (glowWeight > 0.01) secondaryGlow /= glowWeight;
 
-    // Normalize bloom layer
-    if (totalWeight > 0.001) {
-      bloomLayer /= totalWeight;
-    } else {
-      bloomLayer = vec4(0.0);
-    }
+    // === COMPOSITE: Additive blend (preserves dark areas) ===
+    vec3 result = original.rgb;
 
-    // === STEP 2: Screen blend mode ===
-    // Screen: 1 - (1 - base) * (1 - blend)
-    // Glow opacity: 0% to 80% based on intensity
-    float glowOpacity = u_intensity * 0.8;
+    // Halation strength (more intense, tighter)
+    float halationStrength = u_intensity * 0.7;
+    result += halation * halationStrength * halationWeight * 0.15;
 
-    vec3 screenBlend = 1.0 - (1.0 - original.rgb) * (1.0 - bloomLayer.rgb * glowOpacity);
+    // Secondary glow strength (softer, wider)
+    float glowStrength = u_intensity * 0.5;
+    result += secondaryGlow * glowStrength * glowWeight * 0.1;
 
-    // === STEP 3: IG Polish - reduce contrast and add warmth ===
-    vec3 result = screenBlend;
-
-    // Reduce contrast by 10% (pull toward mid-gray)
-    float contrastReduction = 0.10 * u_intensity;
-    result = mix(result, vec3(0.5), contrastReduction);
-
-    // Add warmth (+5%): boost reds/yellows, reduce blues
-    float warmth = 0.05 * u_intensity;
-    result.r += warmth * 0.8;
-    result.g += warmth * 0.4;
-    result.b -= warmth * 0.3;
-
-    // Slight lift to shadows for dreamy look
-    result = mix(result, sqrt(result), 0.08 * u_intensity);
+    // Slight contrast boost to keep darks punchy
+    result = mix(result, result * result * (3.0 - 2.0 * result), 0.08 * u_intensity);
 
     gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
   }
