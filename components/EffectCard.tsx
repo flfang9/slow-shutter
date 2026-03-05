@@ -1,7 +1,7 @@
 'use client';
 
 import { Effect } from '@/types';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film } from 'lucide-react';
 
 const EFFECT_ICONS = {
   'lateral-motion': MoveRight,
@@ -9,6 +9,7 @@ const EFFECT_ICONS = {
   'handheld-drift': Wind,
   'cinematic-swirl': RotateCw,
   'soft-light': Sparkles,
+  'light-trails': Zap,
   'film-grain': Film,
 };
 
