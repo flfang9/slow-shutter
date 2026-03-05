@@ -100,14 +100,19 @@ export default function Home() {
     if (
       !uploadedImage ||
       !processorRef.current ||
-      !canvasRef.current
+      !canvasRef.current ||
+      isProcessing
     ) {
-      console.log('Skipping process:', { uploadedImage: !!uploadedImage, processor: !!processorRef.current, canvas: !!canvasRef.current });
+      console.log('Skipping process:', { uploadedImage: !!uploadedImage, processor: !!processorRef.current, canvas: !!canvasRef.current, isProcessing });
       return;
     }
 
     console.log('Starting processing:', { effect: selectedEffect, intensity });
     setIsProcessing(true);
+
+    // Small delay to allow state to update and prevent race conditions
+    await new Promise(resolve => setTimeout(resolve, 10));
+
     try {
       const result = await processorRef.current.applyEffect(
         uploadedImage,
@@ -122,25 +127,29 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
     }
-  }, [uploadedImage, selectedEffect, intensity]);
+  }, [uploadedImage, selectedEffect, intensity, isProcessing]);
 
-  // Auto-process when effect or image changes
+  // Auto-process when effect or image changes (immediate)
   useEffect(() => {
     if (uploadedImage && !isProcessing) {
       processImage();
     }
-  }, [uploadedImage, selectedEffect, processImage, isProcessing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedImage, selectedEffect]);
 
   // Debounced intensity change
   useEffect(() => {
-    if (!uploadedImage || isProcessing) return;
+    if (!uploadedImage) return;
 
     const timeout = setTimeout(() => {
-      processImage();
-    }, 150); // Debounce for smooth slider
+      if (!isProcessing) {
+        processImage();
+      }
+    }, 300); // Longer debounce to prevent glitching
 
     return () => clearTimeout(timeout);
-  }, [intensity, uploadedImage, isProcessing, processImage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intensity]);
 
   const handleReset = useCallback(() => {
     setUploadedImage(null);

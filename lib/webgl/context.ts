@@ -64,8 +64,14 @@ export function createTexture(
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+  // CRITICAL: Flip Y-axis when uploading to match image coordinate system
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
   // Upload image to texture
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+  // Reset pixel store
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
   return texture;
 }

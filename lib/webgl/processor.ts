@@ -164,6 +164,7 @@ export class EffectProcessor {
     const texturesToCleanup: WebGLTexture[] = [];
 
     // Step 1: Apply blur effect
+    console.log(`Applying effect: ${effect} with intensity: ${normalizedIntensity}`);
     const effectProgram = this.programs.get(effect);
     if (effectProgram) {
       const oldTexture = currentTexture;
@@ -172,6 +173,9 @@ export class EffectProcessor {
         u_resolution: resolution,
       });
       texturesToCleanup.push(oldTexture);
+      console.log(`Effect ${effect} applied successfully`);
+    } else {
+      console.error(`Effect program not found: ${effect}`);
     }
 
     // Step 2: Post-processing stack
