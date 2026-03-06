@@ -120,7 +120,9 @@ export default function Home() {
         finalImg = scaledImg;
       }
 
-      const MAX_PREVIEW_SIZE = 1000;
+      // Smaller preview on mobile for faster processing
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const MAX_PREVIEW_SIZE = isMobile ? 720 : 1000;
       const scale = Math.min(1, MAX_PREVIEW_SIZE / Math.max(finalImg.width, finalImg.height));
 
       if (scale < 1) {
