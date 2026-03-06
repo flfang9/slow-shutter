@@ -274,56 +274,7 @@ export class EffectProcessor {
       console.error(`Effect program not found: ${effect}`);
     }
 
-    // Step 2: Post-processing stack (ONLY for film-grain effect)
-    // For all other effects, skip post-processing to preserve original colors
-    if (effect === 'film-grain') {
-      // Vintage halation (warm glow from bright areas)
-      const halationProgram = this.programs.get('vintage-halation');
-      if (halationProgram) {
-        const oldTexture = currentTexture;
-        currentTexture = this.renderPass(halationProgram, currentTexture, {
-          u_resolution: resolution,
-        });
-        texturesToCleanup.push(oldTexture);
-      }
-
-      // Film grain texture
-      const grainProgram = this.programs.get('post-film-grain');
-      if (grainProgram) {
-        const oldTexture = currentTexture;
-        currentTexture = this.renderPass(grainProgram, currentTexture, {
-          u_time: Math.random() * 1000,
-          u_resolution: resolution,
-        });
-        texturesToCleanup.push(oldTexture);
-      }
-
-      // Light bloom
-      const bloomProgram = this.programs.get('bloom');
-      if (bloomProgram) {
-        const oldTexture = currentTexture;
-        currentTexture = this.renderPass(bloomProgram, currentTexture, {
-          u_resolution: resolution,
-        });
-        texturesToCleanup.push(oldTexture);
-      }
-
-      // Vintage color grading (faded, warm 70s look)
-      const vintageColorProgram = this.programs.get('vintage-color');
-      if (vintageColorProgram) {
-        const oldTexture = currentTexture;
-        currentTexture = this.renderPass(vintageColorProgram, currentTexture);
-        texturesToCleanup.push(oldTexture);
-      }
-
-      // Contrast curve
-      const contrastProgram = this.programs.get('contrast-curve');
-      if (contrastProgram) {
-        const oldTexture = currentTexture;
-        currentTexture = this.renderPass(contrastProgram, currentTexture);
-        texturesToCleanup.push(oldTexture);
-      }
-    }
+    // Post-processing stack removed - filmicGrainShader handles everything in one pass
 
     // Final render to canvas
     console.log('Rendering final result to canvas');
