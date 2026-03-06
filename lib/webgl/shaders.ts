@@ -559,11 +559,12 @@ export const lightTrailsShader = `
   }
 `;
 
-// CINEMATIC EMULSION ENGINE - Wong Kar-Wai Inspired
-// Built from scratch with 3 pillars:
-// 1. Creamy Highlight Roll-off (Tobacco Gold cap at 0.96)
-// 2. Subtractive Color Timing (Teal shadows, hot mids, crushed blacks)
-// 3. Micro-Texture Grain (Midtone-only, invisible in highlights/shadows)
+// CINEMATIC EMULSION ENGINE v2 - Wong Kar-Wai / 35mm Film
+// Optimized for BOTH daytime and nighttime shots
+// 1. Soft-Clip Roll-off (Warm Cream #FFF9F0, never pure white)
+// 2. Subtractive Saturation (colors stay "thick" approaching highlights)
+// 3. Density-Based Grain (heavy in shadows/mids, invisible in sky)
+// 4. Green-Gold Tint (Golden Hour 35mm look for daytime)
 export const filmicGrainShader = `
   precision highp float;
   uniform sampler2D u_image;
@@ -592,100 +593,101 @@ export const filmicGrainShader = `
     float n = noise(p) * 0.5;
     n += noise(p * 2.0) * 0.25;
     n += noise(p * 4.0) * 0.125;
-    return n * 2.0 - 0.875; // Center around 0
+    return n * 2.0 - 0.875;
   }
 
   void main() {
     vec4 original = texture2D(u_image, v_texCoord);
 
-    // At 0% intensity, return original unchanged
     if (u_intensity < 0.001) {
       gl_FragColor = original;
       return;
     }
 
-    float ic = u_intensity * u_intensity; // Quadratic for smooth ramp
+    float ic = u_intensity * u_intensity;
     vec3 color = original.rgb;
     float lum = dot(color, vec3(0.299, 0.587, 0.114));
 
     // ================================================================
-    // PILLAR 2: SUBTRACTIVE COLOR TIMING
+    // 1. SOFT-CLIP ROLL-OFF (No pure white, compress top 10%)
     // ================================================================
+    // Warm Cream: #FFF9F0 = rgb(255, 249, 240) = (1.0, 0.976, 0.941)
+    vec3 warmCream = vec3(1.0, 0.976, 0.941);
 
-    // --- A. CRUSH THE BLACKS (Raise black point) ---
-    // Remap 0-0.08 to pure black, creates ink-black shadows
-    float blackPoint = 0.08 * ic;
-    color = max(vec3(0.0), (color - blackPoint) / (1.0 - blackPoint));
-
-    // Recalculate luminance after black crush
-    lum = dot(color, vec3(0.299, 0.587, 0.114));
-
-    // --- B. TEAL SHADOW INJECTION ---
-    // Deep teal rgb(0, 15, 20) into 0-15% luminance range
-    vec3 tealShadow = vec3(0.0, 0.059, 0.078); // rgb(0, 15, 20) normalized
-    float shadowMask = 1.0 - smoothstep(0.0, 0.15, lum);
-    color = mix(color, color + tealShadow, shadowMask * ic);
-
-    // --- C. MID SATURATION BOOST (Red/Yellow +20%) ---
-    // WKW skin tones are 'hot' and saturated
-    float midMask = smoothstep(0.15, 0.4, lum) * (1.0 - smoothstep(0.6, 0.85, lum));
-
-    // Boost reds and yellows specifically
-    float redYellowAmount = max(color.r - color.b, 0.0) + max(color.g - color.b, 0.0) * 0.5;
-    float satBoost = 1.0 + (midMask * ic * 0.20 * (1.0 + redYellowAmount));
-
-    // Apply saturation boost
-    vec3 gray = vec3(lum);
-    color = mix(gray, color, satBoost);
-
-    // ================================================================
-    // PILLAR 1: CREAMY HIGHLIGHT ROLL-OFF
-    // ================================================================
-    // Any pixel > 0.9 brightness remaps to max 0.96, tinted Tobacco Gold
-
-    // Tobacco Gold: #FFF9F0 = rgb(255, 249, 240) = (1.0, 0.976, 0.941)
-    vec3 tobaccoGold = vec3(1.0, 0.976, 0.941);
-
-    // Per-channel roll-off
-    for (int i = 0; i < 3; i++) {
-      if (color[i] > 0.9) {
-        // Smoothly compress 0.9-1.0 range to 0.9-0.96
-        float excess = (color[i] - 0.9) / 0.1; // 0-1 range
-        float compressed = 0.9 + excess * 0.06; // Max 0.96
-        color[i] = mix(color[i], compressed, ic);
-      }
+    // Soft-clip: compress anything above 0.9 luminance
+    float preLum = dot(color, vec3(0.299, 0.587, 0.114));
+    if (preLum > 0.9) {
+      // Soft knee compression - smoothly roll into warm cream
+      float excess = (preLum - 0.9) / 0.1; // 0-1 in the danger zone
+      float softClip = 0.9 + excess * excess * 0.06; // Quadratic roll-off, max ~0.96
+      float scale = softClip / max(preLum, 0.001);
+      color *= scale;
+      // Tint toward warm cream as we approach ceiling
+      color = mix(color, warmCream * softClip, excess * ic * 0.5);
     }
 
-    // Tint highlights toward Tobacco Gold
-    float highlightLum = dot(color, vec3(0.299, 0.587, 0.114));
-    float highlightMask = smoothstep(0.85, 0.96, highlightLum);
-    color = mix(color, color * tobaccoGold, highlightMask * ic * 0.6);
+    // ================================================================
+    // 2. SUBTRACTIVE SATURATION (Keep colors "thick" near highlights)
+    // ================================================================
+    // As pixels approach highlight threshold, INCREASE saturation
+    // This prevents the washed-out digital look in daytime
+    lum = dot(color, vec3(0.299, 0.587, 0.114));
+
+    // Pre-highlight saturation boost (0.6-0.85 luminance range)
+    float preHighlightMask = smoothstep(0.55, 0.7, lum) * (1.0 - smoothstep(0.8, 0.92, lum));
+    vec3 gray = vec3(lum);
+    float subtractiveSat = 1.0 + preHighlightMask * ic * 0.25; // +25% sat before roll-off
+    color = mix(gray, color, subtractiveSat);
 
     // ================================================================
-    // PILLAR 3: MICRO-TEXTURE GRAIN (Midtone-only)
+    // 3. COLOR TIMING: Teal shadows + Green-Gold highlights
     // ================================================================
-    // GrainOpacity = (1.0 - abs(Luminance - 0.5)) * 1.5
-    // Peaks at 0.5 luminance, invisible at 0 and 1
 
-    float grainScale = 180.0 * (u_resolution.x / 1000.0);
+    // A. Crush blacks slightly
+    float blackPoint = 0.05 * ic;
+    color = max(vec3(0.0), (color - blackPoint) / (1.0 - blackPoint));
+    lum = dot(color, vec3(0.299, 0.587, 0.114));
+
+    // B. Teal shadow injection (0-20% luminance)
+    vec3 tealShadow = vec3(-0.01, 0.04, 0.055);
+    float shadowMask = 1.0 - smoothstep(0.0, 0.20, lum);
+    color += tealShadow * shadowMask * ic;
+
+    // C. Green-Gold Tint in highlights (Golden Hour 35mm look)
+    // Push Red +0.05, Green +0.02 in highlights
+    float highlightMask = smoothstep(0.6, 0.88, lum);
+    color.r += highlightMask * ic * 0.05; // Red +0.05
+    color.g += highlightMask * ic * 0.02; // Green +0.02
+
+    // D. Midtone warmth (subtle tobacco)
+    float midMask = smoothstep(0.2, 0.45, lum) * (1.0 - smoothstep(0.55, 0.75, lum));
+    color.r *= 1.0 + midMask * ic * 0.04;
+    color.b *= 1.0 - midMask * ic * 0.03;
+
+    // ================================================================
+    // 4. DENSITY-BASED GRAIN (Heavy in shadows/mids, invisible in highlights)
+    // ================================================================
+    // GrainOpacity = 1.0 - (Luminance * 0.8)
+    // This stops the "dirty window" look in bright sky areas
+
+    float grainScale = 160.0 * (u_resolution.x / 1000.0);
     float grain = filmGrain(v_texCoord * grainScale + 100.0);
 
-    // Midtone mask: peaks at 0.5, fades to 0 at blacks and whites
+    // Density-based: grain fades as brightness increases
     float grainLum = dot(color, vec3(0.299, 0.587, 0.114));
-    float grainOpacity = (1.0 - abs(grainLum - 0.5) * 2.0) * 1.5;
+    float grainOpacity = 1.0 - (grainLum * 0.8);
     grainOpacity = clamp(grainOpacity, 0.0, 1.0);
 
-    // Apply grain (subtle)
-    float grainStrength = mix(0.02, 0.06, ic);
+    float grainStrength = mix(0.025, 0.07, ic);
     color += vec3(grain * grainStrength * grainOpacity);
 
     // ================================================================
-    // SUBTLE VIGNETTE (WKW moody edges)
+    // 5. SUBTLE VIGNETTE
     // ================================================================
     vec2 vig = v_texCoord - 0.5;
-    float vigAmount = 1.0 - dot(vig, vig) * 0.8;
-    vigAmount = smoothstep(0.2, 1.0, vigAmount);
-    color *= mix(1.0, vigAmount, ic * 0.3);
+    float vigAmount = 1.0 - dot(vig, vig) * 0.7;
+    vigAmount = smoothstep(0.25, 1.0, vigAmount);
+    color *= mix(1.0, vigAmount, ic * 0.25);
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), original.a);
   }
