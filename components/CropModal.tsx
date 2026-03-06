@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { X, Check, RotateCcw, ZoomIn } from 'lucide-react';
 
 interface CropModalProps {
@@ -19,49 +19,83 @@ const ASPECT_RATIOS = [
 ];
 
 export function CropModal({ image, onClose, onApply }: CropModalProps) {
-  const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[3]); // Default to 1:1
+  const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[3]);
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const positionRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
 
+  // Memoize the data URL to prevent expensive re-computation
+  const imageDataUrl = useMemo(() => image.toDataURL('image/jpeg', 0.9), [image]);
+
   useEffect(() => {
-    // Reset position and zoom when ratio changes
     setPosition({ x: 0, y: 0 });
+    positionRef.current = { x: 0, y: 0 };
     setZoom(1);
   }, [selectedRatio]);
 
   useEffect(() => {
-    // Cleanup RAF on unmount
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
-    setIsDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    setDragStart({ x: clientX - position.x, y: clientY - position.y });
-  };
+  // Direct DOM manipulation for smooth dragging
+  const updateImageTransform = useCallback(() => {
+    if (imageRef.current) {
+      const { x, y } = positionRef.current;
+      imageRef.current.style.transform = `translate(${x}px, ${y}px) scale(${zoom}) rotate(${rotation}deg)`;
+    }
+  }, [zoom, rotation]);
 
-  const handleDragMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isDragging) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    setPosition({
-      x: clientX - dragStart.x,
-      y: clientY - dragStart.y,
-    });
-  };
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX - positionRef.current.x,
+      y: e.clientY - positionRef.current.y,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
 
-  const handleDragEnd = () => {
-    setIsDragging(false);
-  };
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+
+    positionRef.current = {
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    };
+
+    // Direct DOM update for 60fps smoothness
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        updateImageTransform();
+        rafRef.current = null;
+      });
+    }
+  }, [updateImageTransform]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    isDraggingRef.current = false;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    // Sync state with ref
+    setPosition({ ...positionRef.current });
+  }, []);
+
+  // Keep position ref in sync when state changes (e.g., ratio reset)
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
+
+  // Update image transform when zoom/rotation changes
+  useEffect(() => {
+    updateImageTransform();
+  }, [zoom, rotation, updateImageTransform]);
 
   const handleApply = () => {
     if (!containerRef.current) return;
@@ -169,22 +203,18 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
       >
         {/* Draggable Image */}
         <div
-          className="absolute inset-0 flex items-center justify-center touch-none"
-          onTouchStart={handleDragStart}
-          onTouchMove={handleDragMove}
-          onTouchEnd={handleDragEnd}
-          onMouseDown={handleDragStart}
-          onMouseMove={handleDragMove}
-          onMouseUp={handleDragEnd}
-          onMouseLeave={handleDragEnd}
-          style={{
-            cursor: isDragging ? 'grabbing' : 'grab',
-          }}
+          className="absolute inset-0 flex items-center justify-center touch-none select-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          style={{ cursor: 'grab', touchAction: 'none' }}
         >
           <img
-            src={image.toDataURL()}
+            ref={imageRef}
+            src={imageDataUrl}
             alt="Crop preview"
-            className="select-none"
+            className="select-none will-change-transform"
             draggable={false}
             style={{
               transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
@@ -269,19 +299,20 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
               <ZoomIn className="w-4 h-4" />
               <span>Zoom</span>
             </div>
-            <span>{Math.round(zoom * 100)}%</span>
+            <span className="tabular-nums">{Math.round(zoom * 100)}%</span>
           </div>
           <input
             type="range"
             min="0.5"
             max="3"
-            step="0.1"
+            step="0.05"
             value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer
-                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
-                       [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-white
-                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+            onInput={(e) => setZoom(Number((e.target as HTMLInputElement).value))}
+            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer touch-none
+                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                       [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white
+                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                       [&::-webkit-slider-thumb]:shadow-lg"
           />
         </div>
 
@@ -292,18 +323,20 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
               <RotateCcw className="w-4 h-4" />
               <span>Rotate</span>
             </div>
-            <span>{rotation}°</span>
+            <span className="tabular-nums">{rotation}°</span>
           </div>
           <input
             type="range"
-            min="-180"
-            max="180"
+            min="-45"
+            max="45"
+            step="1"
             value={rotation}
-            onChange={(e) => setRotation(Number(e.target.value))}
-            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer
-                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
-                       [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-white
-                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+            onInput={(e) => setRotation(Number((e.target as HTMLInputElement).value))}
+            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer touch-none
+                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                       [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white
+                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                       [&::-webkit-slider-thumb]:shadow-lg"
           />
         </div>
       </div>
