@@ -38,12 +38,15 @@ export const lateralMotionShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
+    // Quadratic intensity curve for consistent feel across effects
+    float intensityCurve = u_intensity * u_intensity;
+
     // Motion sweep with ghosting echoes
-    int samples = int(mix(10.0, 32.0, u_intensity));
-    float offset = mix(0.006, 0.05, u_intensity);
+    int samples = int(mix(10.0, 32.0, intensityCurve));
+    float offset = mix(0.006, 0.05, intensityCurve);
 
     // Create ghosting effect - multiple discrete echoes
-    int ghosts = int(mix(2.0, 6.0, u_intensity));
+    int ghosts = int(mix(2.0, 6.0, intensityCurve));
 
     for (int g = 0; g < 6; g++) {
       if (g >= ghosts) break;
@@ -104,8 +107,11 @@ export const verticalZoomShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(8.0, 30.0, u_intensity));
-    float strength = mix(0.015, 0.10, u_intensity);
+    // Quadratic intensity curve for consistent feel across effects
+    float intensityCurve = u_intensity * u_intensity;
+
+    int samples = int(mix(8.0, 30.0, intensityCurve));
+    float strength = mix(0.015, 0.10, intensityCurve);
 
     // Radial zoom blur - sample along the line from center
     for (int i = 0; i < 30; i++) {
@@ -162,8 +168,8 @@ export const cinematicSwirlShader = `
     float intensityCurve = u_intensity * u_intensity;
 
     int samples = int(mix(12.0, 35.0, intensityCurve));
-    float zoomStrength = mix(0.01, 0.12, intensityCurve);
-    float rotationStrength = mix(0.0, 0.15, intensityCurve);
+    float zoomStrength = mix(0.01, 0.09, intensityCurve); // Reduced for gentler feel
+    float rotationStrength = mix(0.0, 0.11, intensityCurve); // Reduced for gentler feel
 
     // Subject preservation - keep center completely clear
     // Inner radius: completely sharp, no blur
@@ -246,8 +252,11 @@ export const handheldDriftShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(10.0, 28.0, u_intensity));
-    float strength = mix(0.006, 0.04, u_intensity);
+    // Quadratic intensity curve for consistent feel across effects
+    float intensityCurve = u_intensity * u_intensity;
+
+    int samples = int(mix(10.0, 28.0, intensityCurve));
+    float strength = mix(0.006, 0.04, intensityCurve);
 
     // Diagonal drift with ghosting echoes
     vec2 driftDir = normalize(vec2(1.0, 0.3));
@@ -558,10 +567,11 @@ export const lightTrailsShader = `
   }
 `;
 
-// Wong Kar-Wai / Chungking Express Film Effect
-// LAYER 1: Luminance-Aware Grain (fBm noise, visible in midtones only)
-// LAYER 2: Red-Shift Halation (red #FF3E3E blur on bright edges, luminance > 0.8)
-// LAYER 3: WKW Color Grading (teal shadows, hot reds/yellows, heavy S-curve)
+// CINEMATIC EMULSION ENGINE - Wong Kar-Wai Inspired
+// Built from scratch with 3 pillars:
+// 1. Creamy Highlight Roll-off (Tobacco Gold cap at 0.96)
+// 2. Subtractive Color Timing (Teal shadows, hot mids, crushed blacks)
+// 3. Micro-Texture Grain (Midtone-only, invisible in highlights/shadows)
 export const filmicGrainShader = `
   precision highp float;
   uniform sampler2D u_image;
@@ -569,7 +579,7 @@ export const filmicGrainShader = `
   uniform vec2 u_resolution;
   varying vec2 v_texCoord;
 
-  // === LAYER 1: fBm Turbulence Noise (like feTurbulence) ===
+  // === Perlin-style noise for organic grain texture ===
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
@@ -577,137 +587,113 @@ export const filmicGrainShader = `
   float noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f); // smoothstep interpolation
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+      f.y
+    );
   }
 
-  // Fractal Brownian Motion - mimics feTurbulence with multiple octaves
-  float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    float frequency = 1.0;
-    for (int i = 0; i < 4; i++) {
-      value += amplitude * noise(p * frequency);
-      frequency *= 2.0;
-      amplitude *= 0.5;
-    }
-    return value;
-  }
-
-  // === LAYER 3: Heavy S-Curve for crushed blacks ===
-  float sCurve(float x) {
-    // Aggressive S-curve: crushes blacks, pushes highlights
-    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
+  // Multi-octave noise for film-like grain clumping
+  float filmGrain(vec2 p) {
+    float n = noise(p) * 0.5;
+    n += noise(p * 2.0) * 0.25;
+    n += noise(p * 4.0) * 0.125;
+    return n * 2.0 - 0.875; // Center around 0
   }
 
   void main() {
     vec4 original = texture2D(u_image, v_texCoord);
-    if (u_intensity < 0.00001) {
+
+    // At 0% intensity, return original unchanged
+    if (u_intensity < 0.001) {
       gl_FragColor = original;
       return;
     }
 
-    // Quadratic intensity curve
-    float ic = u_intensity * u_intensity;
+    float ic = u_intensity * u_intensity; // Quadratic for smooth ramp
     vec3 color = original.rgb;
     float lum = dot(color, vec3(0.299, 0.587, 0.114));
 
     // ================================================================
-    // LAYER 2: RED-SHIFT HALATION
-    // Identify bright edges (luminance > 0.8), apply soft red blur
-    // Mimics chemical bleed into red layer of 35mm film stock
+    // PILLAR 2: SUBTRACTIVE COLOR TIMING
     // ================================================================
-    vec3 halation = vec3(0.0);
-    float halationWeight = 0.0;
 
-    // Multi-ring blur for soft halation glow
-    float baseRadius = mix(0.008, 0.025, ic);
+    // --- A. CRUSH THE BLACKS (Raise black point) ---
+    // Remap 0-0.08 to pure black, creates ink-black shadows
+    float blackPoint = 0.08 * ic;
+    color = max(vec3(0.0), (color - blackPoint) / (1.0 - blackPoint));
 
-    for (int ring = 0; ring < 3; ring++) {
-      float ringRadius = baseRadius * (1.0 + float(ring) * 0.8);
-      float ringFalloff = 1.0 - float(ring) * 0.25;
+    // Recalculate luminance after black crush
+    lum = dot(color, vec3(0.299, 0.587, 0.114));
 
-      for (int i = 0; i < 12; i++) {
-        float angle = float(i) * 6.28318 / 12.0 + float(ring) * 0.3;
-        vec2 offset = vec2(cos(angle), sin(angle)) * ringRadius;
-        vec4 s = texture2D(u_image, v_texCoord + offset);
-        float sLum = dot(s.rgb, vec3(0.299, 0.587, 0.114));
+    // --- B. TEAL SHADOW INJECTION ---
+    // Deep teal rgb(0, 15, 20) into 0-15% luminance range
+    vec3 tealShadow = vec3(0.0, 0.059, 0.078); // rgb(0, 15, 20) normalized
+    float shadowMask = 1.0 - smoothstep(0.0, 0.15, lum);
+    color = mix(color, color + tealShadow, shadowMask * ic);
 
-        // Only bright areas contribute (luminance > 0.8)
-        float brightMask = smoothstep(0.75, 0.95, sLum);
+    // --- C. MID SATURATION BOOST (Red/Yellow +20%) ---
+    // WKW skin tones are 'hot' and saturated
+    float midMask = smoothstep(0.15, 0.4, lum) * (1.0 - smoothstep(0.6, 0.85, lum));
 
-        halation += s.rgb * brightMask * ringFalloff;
-        halationWeight += brightMask * ringFalloff;
+    // Boost reds and yellows specifically
+    float redYellowAmount = max(color.r - color.b, 0.0) + max(color.g - color.b, 0.0) * 0.5;
+    float satBoost = 1.0 + (midMask * ic * 0.20 * (1.0 + redYellowAmount));
+
+    // Apply saturation boost
+    vec3 gray = vec3(lum);
+    color = mix(gray, color, satBoost);
+
+    // ================================================================
+    // PILLAR 1: CREAMY HIGHLIGHT ROLL-OFF
+    // ================================================================
+    // Any pixel > 0.9 brightness remaps to max 0.96, tinted Tobacco Gold
+
+    // Tobacco Gold: #FFF9F0 = rgb(255, 249, 240) = (1.0, 0.976, 0.941)
+    vec3 tobaccoGold = vec3(1.0, 0.976, 0.941);
+
+    // Per-channel roll-off
+    for (int i = 0; i < 3; i++) {
+      if (color[i] > 0.9) {
+        // Smoothly compress 0.9-1.0 range to 0.9-0.96
+        float excess = (color[i] - 0.9) / 0.1; // 0-1 range
+        float compressed = 0.9 + excess * 0.06; // Max 0.96
+        color[i] = mix(color[i], compressed, ic);
       }
     }
 
-    if (halationWeight > 0.01) {
-      halation /= halationWeight;
-
-      // RED TINT: Push halation toward #FF3E3E
-      // Original: (1.0, 0.24, 0.24)
-      vec3 redTint = vec3(1.0, 0.35, 0.35);
-      halation = mix(halation, halation * redTint, 0.6);
-
-      // Screen blend for luminous glow (doesn't darken)
-      vec3 screenBlend = 1.0 - (1.0 - color) * (1.0 - halation);
-      color = mix(color, screenBlend, ic * 0.4 * min(halationWeight, 1.0));
-    }
+    // Tint highlights toward Tobacco Gold
+    float highlightLum = dot(color, vec3(0.299, 0.587, 0.114));
+    float highlightMask = smoothstep(0.85, 0.96, highlightLum);
+    color = mix(color, color * tobaccoGold, highlightMask * ic * 0.6);
 
     // ================================================================
-    // LAYER 3: WKW COLOR GRADING (Teal & Gold)
+    // PILLAR 3: MICRO-TEXTURE GRAIN (Midtone-only)
     // ================================================================
+    // GrainOpacity = (1.0 - abs(Luminance - 0.5)) * 1.5
+    // Peaks at 0.5 luminance, invisible at 0 and 1
 
-    // --- SHADOWS: Teal/Cyan tint ---
-    vec3 tealTint = vec3(-0.03, 0.06, 0.08);
-    float shadowMask = 1.0 - smoothstep(0.0, 0.35, lum);
-    color += tealTint * shadowMask * ic;
-
-    // --- HIGHLIGHTS: Hot reds and yellows ---
-    float highlightMask = smoothstep(0.5, 0.9, lum);
-    float redAmount = max(0.0, color.r - max(color.g, color.b));
-
-    // Push reds hotter
-    color.r *= 1.0 + redAmount * highlightMask * ic * 0.5;
-    // Add warmth (yellow/orange push)
-    color.r *= 1.0 + highlightMask * ic * 0.08;
-    color.g *= 1.0 + highlightMask * ic * 0.03;
-
-    // --- HEAVY S-CURVE: Crush blacks, moody contrast ---
-    float curveStrength = ic * 0.7;
-    color.r = mix(color.r, sCurve(color.r), curveStrength);
-    color.g = mix(color.g, sCurve(color.g), curveStrength);
-    color.b = mix(color.b, sCurve(color.b), curveStrength);
-
-    // ================================================================
-    // LAYER 1: LUMINANCE-AWARE GRAIN
-    // Visible in midtones, invisible in highlights and deep blacks
-    // Feels like it's part of the film emulsion
-    // ================================================================
-    float grainScale = 150.0 * (u_resolution.x / 1000.0); // Resolution-aware
-    float g1 = fbm(v_texCoord * grainScale) * 2.0 - 1.0;
-    float g2 = fbm(v_texCoord * grainScale * 1.7 + 50.0) * 2.0 - 1.0;
-    float grain = (g1 + g2 * 0.5) / 1.5;
+    float grainScale = 180.0 * (u_resolution.x / 1000.0);
+    float grain = filmGrain(v_texCoord * grainScale + 100.0);
 
     // Midtone mask: peaks at 0.5, fades to 0 at blacks and whites
-    float midtoneMask = 1.0 - pow(abs(lum - 0.5) * 2.0, 1.5);
-    midtoneMask = clamp(midtoneMask, 0.0, 1.0);
+    float grainLum = dot(color, vec3(0.299, 0.587, 0.114));
+    float grainOpacity = (1.0 - abs(grainLum - 0.5) * 2.0) * 1.5;
+    grainOpacity = clamp(grainOpacity, 0.0, 1.0);
 
-    // Apply grain
-    float grainStrength = mix(0.03, 0.10, ic);
-    color += vec3(grain * grainStrength * midtoneMask);
+    // Apply grain (subtle)
+    float grainStrength = mix(0.02, 0.06, ic);
+    color += vec3(grain * grainStrength * grainOpacity);
 
     // ================================================================
-    // VIGNETTE: Darken edges for that moody WKW look
+    // SUBTLE VIGNETTE (WKW moody edges)
     // ================================================================
-    vec2 vignette = v_texCoord - 0.5;
-    float vignetteAmount = 1.0 - dot(vignette, vignette) * 1.2;
-    vignetteAmount = smoothstep(0.0, 1.0, vignetteAmount);
-    color *= mix(1.0, vignetteAmount, ic * 0.4);
+    vec2 vig = v_texCoord - 0.5;
+    float vigAmount = 1.0 - dot(vig, vig) * 0.8;
+    vigAmount = smoothstep(0.2, 1.0, vigAmount);
+    color *= mix(1.0, vigAmount, ic * 0.3);
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), original.a);
   }
