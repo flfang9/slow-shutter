@@ -656,7 +656,7 @@ export default function Home() {
       </div>
 
       {/* Mobile Layout - Instagram-Style Dock */}
-      <div className="block md:hidden h-[100dvh] overflow-hidden bg-black relative">
+      <div className="block md:hidden h-[100dvh] overflow-hidden bg-black relative overscroll-none">
         {/* Grid Background (Empty State) - Full Screen Fixed */}
         {!uploadedImage && (
           <div className="fixed inset-0 z-0">
@@ -866,35 +866,55 @@ export default function Home() {
 
                 {/* Row 2: Gesture Slider Area - always visible */}
                 <div
-                  className="px-2 py-4 outline-none select-none"
+                  className="px-2 py-4 outline-none select-none touch-pan-x"
+                  style={{ touchAction: 'pan-x' }}
                   onTouchStart={(e) => {
+                    // Don't prevent default on start - let the gesture begin
                     const touch = e.touches[0];
-                    const pointerEvent = {
-                      preventDefault: () => e.preventDefault(),
-                      clientX: touch.clientX,
-                      pointerId: 0,
-                      target: e.target
-                    } as any;
-                    handleSliderDragStart(pointerEvent);
+                    setIsDraggingSlider(true);
+                    setDragStartX(touch.clientX);
+                    setDragStartIntensity(intensity);
+                    if (fadeTimeoutRef.current) {
+                      clearTimeout(fadeTimeoutRef.current);
+                    }
                   }}
                   onTouchMove={(e) => {
+                    if (!isDraggingSlider) return;
+                    e.preventDefault(); // Prevent scroll/refresh during drag
+                    e.stopPropagation();
                     const touch = e.touches[0];
-                    const pointerEvent = {
-                      preventDefault: () => e.preventDefault(),
-                      clientX: touch.clientX,
-                      pointerId: 0,
-                      target: e.target
-                    } as any;
-                    handleSliderDragMove(pointerEvent);
+                    const deltaX = touch.clientX - dragStartX;
+                    const percentChange = (deltaX / window.innerWidth) * 100;
+                    const newIntensity = Math.max(0, Math.min(100, Math.round(dragStartIntensity + percentChange)));
+
+                    // Direct DOM update
+                    if (sliderBarRef.current) {
+                      sliderBarRef.current.style.width = `${newIntensity}%`;
+                    }
+                    if (sliderTextRef.current) {
+                      sliderTextRef.current.textContent = `${newIntensity}%`;
+                    }
+
+                    // Throttle state updates
+                    if (sliderRafRef.current) {
+                      cancelAnimationFrame(sliderRafRef.current);
+                    }
+                    sliderRafRef.current = requestAnimationFrame(() => {
+                      sliderRafRef.current = null;
+                      setIntensity(newIntensity);
+                    });
                   }}
-                  onTouchEnd={(e) => {
-                    const pointerEvent = {
-                      preventDefault: () => e.preventDefault(),
-                      clientX: 0,
-                      pointerId: 0,
-                      target: e.target
-                    } as any;
-                    handleSliderDragEnd(pointerEvent);
+                  onTouchEnd={() => {
+                    if (sliderRafRef.current) {
+                      cancelAnimationFrame(sliderRafRef.current);
+                      sliderRafRef.current = null;
+                    }
+                    // Get final value from DOM
+                    const finalValue = sliderBarRef.current
+                      ? parseInt(sliderBarRef.current.style.width) || intensity
+                      : intensity;
+                    setIntensity(finalValue);
+                    setIsDraggingSlider(false);
                   }}
                 >
                   <div className="flex justify-center items-center gap-2 mb-2">
