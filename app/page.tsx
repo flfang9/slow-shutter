@@ -387,13 +387,13 @@ export default function Home() {
 
   const sliderBarRef = useRef<HTMLDivElement>(null);
   const sliderTextRef = useRef<HTMLSpanElement>(null);
-  const pendingIntensityRef = useRef<number | null>(null);
+  const sliderRafRef = useRef<number | null>(null);
 
   const handleSliderDragStart = (e: React.PointerEvent) => {
+    e.preventDefault();
     setIsDraggingSlider(true);
     setDragStartX(e.clientX);
     setDragStartIntensity(intensity);
-    pendingIntensityRef.current = intensity;
     if (fadeTimeoutRef.current) {
       clearTimeout(fadeTimeoutRef.current);
     }
@@ -402,11 +402,13 @@ export default function Home() {
 
   const handleSliderDragMove = (e: React.PointerEvent) => {
     if (!isDraggingSlider) return;
+    e.preventDefault();
+
     const deltaX = e.clientX - dragStartX;
     const percentChange = (deltaX / window.innerWidth) * 100;
     const newIntensity = Math.max(0, Math.min(100, Math.round(dragStartIntensity + percentChange)));
 
-    // Direct DOM update for instant visual feedback
+    // Direct DOM update for instant visual feedback (always)
     if (sliderBarRef.current) {
       sliderBarRef.current.style.width = `${newIntensity}%`;
     }
@@ -414,24 +416,27 @@ export default function Home() {
       sliderTextRef.current.textContent = `${newIntensity}%`;
     }
 
-    // Throttle state updates to reduce re-renders
-    pendingIntensityRef.current = newIntensity;
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        if (pendingIntensityRef.current !== null) {
-          setIntensity(pendingIntensityRef.current);
-        }
-      });
+    // Throttle state updates with separate RAF
+    if (sliderRafRef.current) {
+      cancelAnimationFrame(sliderRafRef.current);
     }
+    sliderRafRef.current = requestAnimationFrame(() => {
+      sliderRafRef.current = null;
+      setIntensity(newIntensity);
+    });
   };
 
   const handleSliderDragEnd = (e: React.PointerEvent) => {
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    // Final state sync
-    if (pendingIntensityRef.current !== null) {
-      setIntensity(pendingIntensityRef.current);
+    if (sliderRafRef.current) {
+      cancelAnimationFrame(sliderRafRef.current);
+      sliderRafRef.current = null;
     }
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    // Get final value from DOM
+    const finalValue = sliderBarRef.current
+      ? parseInt(sliderBarRef.current.style.width) || intensity
+      : intensity;
+    setIntensity(finalValue);
     setIsDraggingSlider(false);
   };
 
