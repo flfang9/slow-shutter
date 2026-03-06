@@ -779,11 +779,36 @@ export default function Home() {
 
                 {/* Row 2: Gesture Slider Area - always visible */}
                 <div
-                  className="px-2 py-4 touch-none"
-                  onPointerDown={handleSliderDragStart}
-                  onPointerMove={handleSliderDragMove}
-                  onPointerUp={handleSliderDragEnd}
-                  onPointerLeave={handleSliderDragEnd}
+                  className="px-2 py-4"
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0];
+                    const pointerEvent = {
+                      preventDefault: () => e.preventDefault(),
+                      clientX: touch.clientX,
+                      pointerId: 0,
+                      target: e.target
+                    } as any;
+                    handleSliderDragStart(pointerEvent);
+                  }}
+                  onTouchMove={(e) => {
+                    const touch = e.touches[0];
+                    const pointerEvent = {
+                      preventDefault: () => e.preventDefault(),
+                      clientX: touch.clientX,
+                      pointerId: 0,
+                      target: e.target
+                    } as any;
+                    handleSliderDragMove(pointerEvent);
+                  }}
+                  onTouchEnd={(e) => {
+                    const pointerEvent = {
+                      preventDefault: () => e.preventDefault(),
+                      clientX: 0,
+                      pointerId: 0,
+                      target: e.target
+                    } as any;
+                    handleSliderDragEnd(pointerEvent);
+                  }}
                 >
                   <div className="flex justify-center items-center gap-2 mb-2">
                     <span
