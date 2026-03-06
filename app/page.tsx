@@ -682,8 +682,8 @@ export default function Home() {
               dockMinimized ? 'translate-y-[calc(100%-80px)]' : 'translate-y-0'
             }`}
             style={{
-              background: isDraggingSlider ? 'transparent' : 'rgba(0, 0, 0, 0.6)',
-              borderTop: isDraggingSlider ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+              background: isDraggingSlider ? 'rgba(255, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.6)',
+              borderTop: isDraggingSlider ? '2px solid red' : '1px solid rgba(255, 255, 255, 0.1)',
               backdropFilter: isDraggingSlider ? 'none' : 'blur(40px)',
               WebkitBackdropFilter: isDraggingSlider ? 'none' : 'blur(40px)',
             }}
