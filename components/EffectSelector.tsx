@@ -36,8 +36,8 @@ const EFFECTS: Effect[] = [
   },
   {
     id: 'film-grain',
-    name: 'Film Grain',
-    description: 'Fuji cinema texture',
+    name: 'Film',
+    description: 'Cinematic color grade',
     preview: '/effect-previews/film-grain.jpg',
   },
 ];

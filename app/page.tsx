@@ -385,28 +385,54 @@ export default function Home() {
     setUserExpandedDock(false);
   };
 
+  const sliderBarRef = useRef<HTMLDivElement>(null);
+  const sliderTextRef = useRef<HTMLSpanElement>(null);
+  const pendingIntensityRef = useRef<number | null>(null);
+
   const handleSliderDragStart = (e: React.PointerEvent) => {
     setIsDraggingSlider(true);
     setDragStartX(e.clientX);
     setDragStartIntensity(intensity);
+    pendingIntensityRef.current = intensity;
     if (fadeTimeoutRef.current) {
       clearTimeout(fadeTimeoutRef.current);
     }
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handleSliderDragMove = (e: React.PointerEvent) => {
     if (!isDraggingSlider) return;
     const deltaX = e.clientX - dragStartX;
     const percentChange = (deltaX / window.innerWidth) * 100;
-    const newIntensity = Math.max(0, Math.min(100, dragStartIntensity + percentChange));
-    setIntensity(Math.round(newIntensity));
+    const newIntensity = Math.max(0, Math.min(100, Math.round(dragStartIntensity + percentChange)));
+
+    // Direct DOM update for instant visual feedback
+    if (sliderBarRef.current) {
+      sliderBarRef.current.style.width = `${newIntensity}%`;
+    }
+    if (sliderTextRef.current) {
+      sliderTextRef.current.textContent = `${newIntensity}%`;
+    }
+
+    // Throttle state updates to reduce re-renders
+    pendingIntensityRef.current = newIntensity;
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        if (pendingIntensityRef.current !== null) {
+          setIntensity(pendingIntensityRef.current);
+        }
+      });
+    }
   };
 
-  const handleSliderDragEnd = () => {
+  const handleSliderDragEnd = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    // Final state sync
+    if (pendingIntensityRef.current !== null) {
+      setIntensity(pendingIntensityRef.current);
+    }
     setIsDraggingSlider(false);
-    fadeTimeoutRef.current = setTimeout(() => {
-      setIsDraggingSlider(false);
-    }, 500);
   };
 
   const handleCropApply = (croppedCanvas: HTMLCanvasElement) => {
@@ -510,8 +536,8 @@ export default function Home() {
                 <div>→ Radial Zoom Pull</div>
                 <div>→ Handheld Drift</div>
                 <div>→ Cinematic Swirl</div>
-                <div>→ Soft Light Halation</div>
-                <div>→ Film Grain Texture</div>
+                <div>→ Soft Light Glow</div>
+                <div>→ Cinematic Film</div>
               </div>
             </div>
           )}
@@ -645,8 +671,6 @@ export default function Home() {
             style={{
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
-              opacity: isDraggingSlider ? 0.15 : 1,
-              transition: 'opacity 0.1s ease-out, transform 0.3s ease-out',
             }}
           >
             {/* Swipe Handle */}
@@ -687,15 +711,18 @@ export default function Home() {
 
             {!dockMinimized && (
               <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
-                {/* Row 1: Effect Icons */}
-                <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
+                {/* Row 1: Effect Icons - fades when adjusting slider */}
+                <div
+                  className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1 transition-opacity duration-100"
+                  style={{ opacity: isDraggingSlider ? 0.3 : 1 }}
+                >
                   {[
                     { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
                     { id: 'vertical-zoom', icon: Maximize, label: 'Zoom' },
                     { id: 'handheld-drift', icon: Wind, label: 'Drift' },
                     { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
                     { id: 'soft-light', icon: Sparkles, label: 'Glow' },
-                    { id: 'film-grain', icon: Film, label: 'Grain' },
+                    { id: 'film-grain', icon: Film, label: 'Film' },
                   ].map((effect) => {
                     const Icon = effect.icon;
                     return (
@@ -736,11 +763,14 @@ export default function Home() {
                   onPointerLeave={handleSliderDragEnd}
                 >
                   <div className="flex justify-center items-center gap-2 mb-2">
-                    <span className={`tabular-nums transition-all ${
-                      isDraggingSlider
-                        ? 'text-base text-white font-medium'
-                        : 'text-xs text-white/40'
-                    }`}>
+                    <span
+                      ref={sliderTextRef}
+                      className={`tabular-nums transition-all ${
+                        isDraggingSlider
+                          ? 'text-base text-white font-medium'
+                          : 'text-xs text-white/40'
+                      }`}
+                    >
                       {intensity}%
                     </span>
                     {selectedEffect === 'soft-light' && (
@@ -753,6 +783,7 @@ export default function Home() {
                     isDraggingSlider ? 'h-1 bg-white/20' : 'h-0.5 bg-white/10'
                   }`}>
                     <div
+                      ref={sliderBarRef}
                       className={`h-full rounded-full ${
                         isDraggingSlider ? '' : 'transition-all'
                       } ${

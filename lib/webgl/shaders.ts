@@ -558,10 +558,11 @@ export const lightTrailsShader = `
   }
 `;
 
-// Wong Kar-Wai / Chungking Express Film Effect
-// - WKW Color Timing: Teal shadows, hot reds/oranges, S-curve contrast
-// - Luminance-Aware Clumped Grain: Visible in midtones, fades in highlights/shadows
-// - Soft-Focus Halation: Dreamy glow on bright red/white sources
+// Cinematic Film Effect - Works for both day and night
+// - Subtle film color grading with teal shadows
+// - Fine grain texture (midtone-focused)
+// - Gentle vignette
+// - NO aggressive halation (prevents daylight overexposure)
 export const filmicGrainShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -584,8 +585,11 @@ export const filmicGrainShader = `
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
-  float sCurve(float x) {
-    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
+  // Gentler S-curve that doesn't blow highlights
+  float softCurve(float x) {
+    // Lift shadows slightly, compress highlights gently
+    float lifted = x + (1.0 - x) * x * 0.1; // Slight shadow lift
+    return lifted;
   }
 
   void main() {
@@ -595,67 +599,48 @@ export const filmicGrainShader = `
       return;
     }
 
-    float ic = u_intensity * u_intensity;
+    // Much gentler intensity curve (cubic) - 1% barely visible, 100% full effect
+    float ic = u_intensity * u_intensity * u_intensity;
     vec3 color = original.rgb;
     float lum = dot(color, vec3(0.299, 0.587, 0.114));
 
-    // === HALATION: Dreamy glow on bright red/white ===
-    vec3 halation = vec3(0.0);
-    float hw = 0.0;
-    float hr = mix(0.02, 0.06, ic);
+    // === FILM COLOR GRADING: Subtle teal shadows, warm highlights ===
+    // Teal push in shadows only (no highlight changes to prevent overexposure)
+    vec3 tealShadow = vec3(-0.02, 0.03, 0.05);
+    float shadowMask = 1.0 - smoothstep(0.0, 0.4, lum);
+    color += tealShadow * shadowMask * ic * 0.6;
 
-    for (int r = 0; r < 3; r++) {
-      float rr = hr * (float(r) + 1.0) / 3.0;
-      float rf = 1.0 - float(r) * 0.3;
-      for (int i = 0; i < 12; i++) {
-        float a = float(i) * 6.283 / 12.0 + float(r) * 0.5;
-        vec2 off = vec2(cos(a), sin(a)) * rr;
-        vec4 s = texture2D(u_image, v_texCoord + off);
-        float sl = dot(s.rgb, vec3(0.299, 0.587, 0.114));
-        float isW = smoothstep(0.75, 0.95, sl);
-        float isR = smoothstep(0.5, 0.8, s.r) * (1.0 - smoothstep(0.3, 0.6, s.b));
-        float bm = max(isW, isR * 0.7);
-        halation += s.rgb * bm * rf;
-        hw += bm * rf;
-      }
-    }
-    if (hw > 0.01) {
-      halation /= hw;
-      vec3 scr = 1.0 - (1.0 - color) * (1.0 - halation);
-      color = mix(color, scr, ic * 0.3 * hw * 0.5);
-    }
+    // Very subtle warmth in midtones (not highlights)
+    float midMask = smoothstep(0.2, 0.5, lum) * (1.0 - smoothstep(0.6, 0.85, lum));
+    color.r *= 1.0 + midMask * ic * 0.03;
+    color.b *= 1.0 - midMask * ic * 0.02;
 
-    // === WKW COLOR: Teal shadows, hot reds ===
-    vec3 teal = vec3(0.0, 0.08, 0.06);
-    float shMask = 1.0 - smoothstep(0.0, 0.35, lum);
-    color = mix(color, color + teal, shMask * ic * 0.8);
+    // Gentle tone curve (lifts shadows, preserves highlights)
+    float curveAmt = ic * 0.4;
+    color.r = mix(color.r, softCurve(color.r), curveAmt);
+    color.g = mix(color.g, softCurve(color.g), curveAmt);
+    color.b = mix(color.b, softCurve(color.b), curveAmt);
 
-    float hiMask = smoothstep(0.5, 0.85, lum);
-    float redAmt = color.r - max(color.g, color.b);
-    if (redAmt > 0.0) {
-      color.r *= 1.0 + redAmt * hiMask * ic * 0.4;
-      color.g *= 1.0 + redAmt * hiMask * ic * 0.15;
-    }
+    // === FINE FILM GRAIN: Midtone-focused, subtle ===
+    float g1 = clumpedNoise(v_texCoord, 120.0) * 2.0 - 1.0;
+    float g2 = clumpedNoise(v_texCoord + 0.5, 180.0) * 2.0 - 1.0;
+    float grain = (g1 + g2 * 0.4) / 1.4;
 
-    // S-curve contrast
-    float ca = ic * 0.6;
-    color.r = mix(color.r, sCurve(color.r), ca);
-    color.g = mix(color.g, sCurve(color.g), ca);
-    color.b = mix(color.b, sCurve(color.b), ca);
+    // Grain visible in midtones, fades in shadows and highlights
+    float grainMask = 1.0 - pow(abs(lum - 0.45) * 2.0, 2.0);
+    grainMask = clamp(grainMask, 0.0, 1.0);
 
-    // === CLUMPED GRAIN: Midtone-focused ===
-    float g1 = clumpedNoise(v_texCoord, 90.0) * 2.0 - 1.0;
-    float g2 = clumpedNoise(v_texCoord + 0.5, 117.0) * 2.0 - 1.0;
-    float grain = (g1 + g2 * 0.5) / 1.5;
-    float midMask = 1.0 - pow(abs(lum - 0.45) * 2.2, 2.0);
-    midMask = clamp(midMask, 0.0, 1.0);
-    float gs = mix(0.04, 0.14, ic);
-    color += vec3(grain * gs * midMask);
+    // Much subtler grain strength
+    float grainStrength = mix(0.015, 0.06, ic);
+    color += vec3(grain * grainStrength * grainMask);
 
-    // Vignette
+    // === SUBTLE VIGNETTE ===
     vec2 vc = v_texCoord - 0.5;
-    float vig = 1.0 - dot(vc, vc) * 0.6;
-    color *= mix(1.0, vig, ic * 0.35);
+    float vig = 1.0 - dot(vc, vc) * 0.5;
+    color *= mix(1.0, vig, ic * 0.25);
+
+    // Preserve highlight detail - compress anything going over 1.0
+    color = color / (1.0 + max(vec3(0.0), color - 0.95) * 2.0);
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), original.a);
   }
