@@ -87,6 +87,12 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
           </span>
         </div>
 
+        {/* Description - adapts for mobile vs desktop */}
+        <p className="mt-4 text-xs md:text-sm text-white/40 text-center max-w-xs mx-auto">
+          <span className="md:hidden">add cinematic motion blur to make sick ass photos!</span>
+          <span className="hidden md:inline">add cinematic motion blur to make sick ass photos!</span>
+        </p>
+
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.heic,.heif,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.rw2,.pef,.srw,image/jpeg,image/png,image/heic,image/heif"

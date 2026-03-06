@@ -41,6 +41,7 @@ export default function Home() {
   const [showingBefore, setShowingBefore] = useState(false);
   const [swirlCenter, setSwirlCenter] = useState({ x: 0.5, y: 0.45 });
   const [showSwirlIndicator, setShowSwirlIndicator] = useState(false);
+  const [swirlIndicatorPos, setSwirlIndicatorPos] = useState({ x: 0, y: 0 }); // Screen position for crosshair
   const [userExpandedDock, setUserExpandedDock] = useState(false);
   const swirlIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -343,6 +344,9 @@ export default function Home() {
       const newSwirlCenter = { x: clampedX, y: 1.0 - clampedY };
       setSwirlCenter(newSwirlCenter);
 
+      // Store screen position for crosshair display (relative to viewport)
+      setSwirlIndicatorPos({ x: clientX, y: clientY });
+
       // Show indicator briefly
       setShowSwirlIndicator(true);
       if (swirlIndicatorTimeoutRef.current) {
@@ -498,10 +502,10 @@ export default function Home() {
                     {/* Swirl center indicator - minimal crosshair, fades after tap */}
                     {selectedEffect === 'cinematic-swirl' && !showingBefore && showSwirlIndicator && (
                       <div
-                        className="absolute pointer-events-none animate-in fade-in duration-100"
+                        className="fixed pointer-events-none animate-in fade-in duration-100 z-20"
                         style={{
-                          left: `${swirlCenter.x * 100}%`,
-                          top: `${(1 - swirlCenter.y) * 100}%`,
+                          left: swirlIndicatorPos.x,
+                          top: swirlIndicatorPos.y,
                           transform: 'translate(-50%, -50%)',
                         }}
                       >
@@ -643,10 +647,10 @@ export default function Home() {
               {/* Mobile: Swirl center indicator - minimal crosshair, fades after tap */}
               {selectedEffect === 'cinematic-swirl' && !showingBefore && showSwirlIndicator && (
                 <div
-                  className="absolute pointer-events-none animate-in fade-in duration-100"
+                  className="fixed pointer-events-none animate-in fade-in duration-100 z-20"
                   style={{
-                    left: `${swirlCenter.x * 100}%`,
-                    top: `${(1 - swirlCenter.y) * 100}%`,
+                    left: swirlIndicatorPos.x,
+                    top: swirlIndicatorPos.y,
                     transform: 'translate(-50%, -50%)',
                   }}
                 >
@@ -718,10 +722,10 @@ export default function Home() {
 
             {!dockMinimized && (
               <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
-                {/* Row 1: Effect Icons - fades when adjusting slider */}
+                {/* Row 1: Effect Icons - hides when adjusting slider */}
+                {!isDraggingSlider && (
                 <div
                   className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1 transition-opacity duration-100"
-                  style={{ opacity: isDraggingSlider ? 0.3 : 1 }}
                 >
                   {[
                     { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
@@ -760,8 +764,9 @@ export default function Home() {
                     );
                   })}
                 </div>
+                )}
 
-                {/* Row 2: Gesture Slider Area */}
+                {/* Row 2: Gesture Slider Area - always visible */}
                 <div
                   className="px-2 py-4 touch-none"
                   onPointerDown={handleSliderDragStart}
@@ -805,8 +810,8 @@ export default function Home() {
               </div>
             )}
 
-            {/* Always Visible: Compare Button */}
-            {!dockMinimized && (
+            {/* Compare Button - hidden when dragging slider */}
+            {!dockMinimized && !isDraggingSlider && (
               <div className="px-4 pt-4 border-t border-white/10">
                 <button
                   onClick={() => setShowingBefore(!showingBefore)}
@@ -821,7 +826,8 @@ export default function Home() {
               </div>
             )}
 
-            {/* Always Visible: Crop | Share | New Buttons */}
+            {/* Crop | Share | New Buttons - hidden when dragging slider */}
+            {!isDraggingSlider && (
             <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-3'}`}>
               <div className="grid grid-cols-3 gap-3">
                 <button
@@ -886,6 +892,7 @@ export default function Home() {
                 </button>
               </div>
             </div>
+            )}
           </div>
         )}
       </div>

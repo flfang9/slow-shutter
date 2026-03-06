@@ -171,16 +171,8 @@ export const cinematicSwirlShader = `
     float zoomStrength = mix(0.01, 0.09, intensityCurve); // Reduced for gentler feel
     float rotationStrength = mix(0.0, 0.11, intensityCurve); // Reduced for gentler feel
 
-    // Subject preservation - keep center completely clear
-    // Inner radius: completely sharp, no blur
-    // Outer radius: full effect
-    float innerRadius = 0.03;  // Clear center zone (reduced from 0.08)
-    float outerRadius = 0.25;  // Full effect zone (reduced from 0.35)
-    float centerFalloff = smoothstep(innerRadius, outerRadius, distance);
-
-    // Apply falloff to both effects
-    zoomStrength *= centerFalloff;
-    rotationStrength *= centerFalloff;
+    // No center falloff - uniform effect everywhere
+    // The swirl naturally looks good at the center point
 
     for (int i = 0; i < 35; i++) {
       if (i >= samples) break;
