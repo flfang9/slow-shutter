@@ -624,8 +624,7 @@ export default function Home() {
           )}
         </div>
 
-        {/* Collapsible HUD - z-10 Layer */}
-        {/* Ghost HUD (20% opacity) when adjusting Light Trails for better preview */}
+        {/* Collapsible HUD - fades when adjusting slider for full photo visibility */}
         {uploadedImage && (
           <div
             className={`fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10 transition-all duration-300 ${
@@ -634,8 +633,8 @@ export default function Home() {
             style={{
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
-              opacity: isDraggingSlider && selectedEffect === 'light-trails' ? 0.2 : 1,
-              transition: 'opacity 0.15s ease-out, transform 0.3s ease-out',
+              opacity: isDraggingSlider ? 0.15 : 1,
+              transition: 'opacity 0.1s ease-out, transform 0.3s ease-out',
             }}
           >
             {/* Swipe Handle */}
@@ -725,12 +724,13 @@ export default function Home() {
                       {intensity}%
                     </span>
                     {selectedEffect === 'light-trails' && (
-                      <span className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded transition-all ${
-                        intensity >= 65
-                          ? 'bg-white/15 text-white/70'
-                          : 'bg-white/5 text-white/30'
-                      }`}>
-                        {intensity >= 65 ? 'Trails' : 'Glow'}
+                      <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/60">
+                        trails
+                      </span>
+                    )}
+                    {selectedEffect === 'soft-light' && (
+                      <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/60">
+                        glow
                       </span>
                     )}
                   </div>
