@@ -397,6 +397,7 @@ export default function Home() {
 
   const handleSliderDragStart = (e: React.PointerEvent) => {
     e.preventDefault();
+    console.log('🎯 DRAG START - isDraggingSlider set to TRUE');
     setIsDraggingSlider(true);
     setDragStartX(e.clientX);
     setDragStartIntensity(intensity);
@@ -433,6 +434,7 @@ export default function Home() {
   };
 
   const handleSliderDragEnd = (e: React.PointerEvent) => {
+    console.log('🎯 DRAG END - isDraggingSlider set to FALSE');
     if (sliderRafRef.current) {
       cancelAnimationFrame(sliderRafRef.current);
       sliderRafRef.current = null;
@@ -729,7 +731,13 @@ export default function Home() {
                 {/* Row 1: Effect Icons - hides when adjusting slider */}
                 <div
                   className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1 transition-opacity duration-100"
-                  style={{ opacity: isDraggingSlider ? 0 : 1, pointerEvents: isDraggingSlider ? 'none' : 'auto' }}
+                  style={{
+                    opacity: isDraggingSlider ? 0 : 1,
+                    pointerEvents: isDraggingSlider ? 'none' : 'auto'
+                  }}
+                  ref={(el) => {
+                    if (el) console.log('🎨 Effect Icons opacity:', window.getComputedStyle(el).opacity, 'isDraggingSlider:', isDraggingSlider);
+                  }}
                 >
                   {[
                     { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
