@@ -8,13 +8,14 @@ import {
   handheldDriftShader,
   cinematicSwirlShader,
   softLightShader,
-  lightTrailsShader,
   filmicGrainShader,
   filmGrainShader,
   vibranceShader,
   bloomShader,
   contrastCurveShader,
   passThroughShader,
+  vintageHalationShader,
+  vintageColorGradeShader,
 } from './shaders';
 
 export class EffectProcessor {
@@ -96,9 +97,10 @@ export class EffectProcessor {
       'handheld-drift': handheldDriftShader,
       'cinematic-swirl': cinematicSwirlShader,
       'soft-light': softLightShader,
-      'light-trails': lightTrailsShader,
       'film-grain': filmicGrainShader,
       'post-film-grain': filmGrainShader,
+      'vintage-halation': vintageHalationShader,
+      'vintage-color': vintageColorGradeShader,
       'vibrance': vibranceShader,
       'bloom': bloomShader,
       'contrast-curve': contrastCurveShader,
@@ -280,6 +282,16 @@ export class EffectProcessor {
     // Step 2: Post-processing stack (ONLY for film-grain effect)
     // For all other effects, skip post-processing to preserve original colors
     if (effect === 'film-grain') {
+      // Vintage halation (warm glow from bright areas)
+      const halationProgram = this.programs.get('vintage-halation');
+      if (halationProgram) {
+        const oldTexture = currentTexture;
+        currentTexture = this.renderPass(halationProgram, currentTexture, {
+          u_resolution: resolution,
+        });
+        texturesToCleanup.push(oldTexture);
+      }
+
       // Film grain texture
       const grainProgram = this.programs.get('post-film-grain');
       if (grainProgram) {
@@ -291,14 +303,6 @@ export class EffectProcessor {
         texturesToCleanup.push(oldTexture);
       }
 
-      // Vibrance boost
-      const vibranceProgram = this.programs.get('vibrance');
-      if (vibranceProgram) {
-        const oldTexture = currentTexture;
-        currentTexture = this.renderPass(vibranceProgram, currentTexture);
-        texturesToCleanup.push(oldTexture);
-      }
-
       // Light bloom
       const bloomProgram = this.programs.get('bloom');
       if (bloomProgram) {
@@ -306,6 +310,14 @@ export class EffectProcessor {
         currentTexture = this.renderPass(bloomProgram, currentTexture, {
           u_resolution: resolution,
         });
+        texturesToCleanup.push(oldTexture);
+      }
+
+      // Vintage color grading (faded, warm 70s look)
+      const vintageColorProgram = this.programs.get('vintage-color');
+      if (vintageColorProgram) {
+        const oldTexture = currentTexture;
+        currentTexture = this.renderPass(vintageColorProgram, currentTexture);
         texturesToCleanup.push(oldTexture);
       }
 

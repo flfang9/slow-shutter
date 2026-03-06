@@ -27,12 +27,20 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Reset position and zoom when ratio changes
     setPosition({ x: 0, y: 0 });
     setZoom(1);
   }, [selectedRatio]);
+
+  useEffect(() => {
+    // Cleanup RAF on unmount
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
     setIsDragging(true);
@@ -101,31 +109,23 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
     const sourceWidth = (frameRect.width / zoom) * scaleX;
     const sourceHeight = (frameRect.height / zoom) * scaleY;
 
-    // Apply rotation if needed
+    // Optimized: Rotate only the output canvas, not the entire source image
     if (rotation !== 0) {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = image.width;
-      tempCanvas.height = image.height;
-      const tempCtx = tempCanvas.getContext('2d');
-      if (tempCtx) {
-        tempCtx.save();
-        tempCtx.translate(image.width / 2, image.height / 2);
-        tempCtx.rotate((rotation * Math.PI) / 180);
-        tempCtx.drawImage(image, -image.width / 2, -image.height / 2);
-        tempCtx.restore();
-
-        ctx.drawImage(
-          tempCanvas,
-          sourceX,
-          sourceY,
-          sourceWidth,
-          sourceHeight,
-          0,
-          0,
-          cropWidth,
-          cropHeight
-        );
-      }
+      ctx.save();
+      ctx.translate(cropWidth / 2, cropHeight / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.drawImage(
+        image,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        -cropWidth / 2,
+        -cropHeight / 2,
+        cropWidth,
+        cropHeight
+      );
+      ctx.restore();
     } else {
       ctx.drawImage(
         image,

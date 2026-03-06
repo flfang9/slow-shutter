@@ -30,15 +30,9 @@ const EFFECTS: Effect[] = [
   },
   {
     id: 'soft-light',
-    name: 'Soft Light',
-    description: 'Film halation glow',
+    name: 'Glow',
+    description: 'Soft light bloom',
     preview: '/effect-previews/soft-light.jpg',
-  },
-  {
-    id: 'light-trails',
-    name: 'Light Trails',
-    description: 'Glow → Trails at 65%',
-    preview: '/effect-previews/light-trails.jpg',
   },
   {
     id: 'film-grain',

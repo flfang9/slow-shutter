@@ -41,6 +41,7 @@ export default function Home() {
   const [showingBefore, setShowingBefore] = useState(false);
   const [swirlCenter, setSwirlCenter] = useState({ x: 0.5, y: 0.45 });
   const [showSwirlIndicator, setShowSwirlIndicator] = useState(false);
+  const [userExpandedDock, setUserExpandedDock] = useState(false);
   const swirlIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -67,21 +68,10 @@ export default function Home() {
   useEffect(() => { intensityRef.current = intensity; }, [intensity]);
   useEffect(() => { effectRef.current = selectedEffect; }, [selectedEffect]);
 
-  // Haptic feedback when crossing threshold on mobile (light-trails at 65%)
+  // Track previous intensity for any future use
   useEffect(() => {
-    if (selectedEffect === 'light-trails' && isDraggingSlider) {
-      const threshold = 65;
-      const crossedUp = prevIntensityRef.current < threshold && intensity >= threshold;
-      const crossedDown = prevIntensityRef.current >= threshold && intensity < threshold;
-
-      if (crossedUp || crossedDown) {
-        if ('vibrate' in navigator) {
-          navigator.vibrate(10);
-        }
-      }
-    }
     prevIntensityRef.current = intensity;
-  }, [intensity, selectedEffect, isDraggingSlider]);
+  }, [intensity]);
 
   useEffect(() => {
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
@@ -224,6 +214,17 @@ export default function Home() {
     if (previewImage) processPreviewImmediate(selectedEffect, intensity);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEffect]);
+
+  // Auto-minimize dock for swirl effect on mobile to allow tapping center of image
+  useEffect(() => {
+    if (selectedEffect === 'cinematic-swirl' && uploadedImage && !userExpandedDock) {
+      setDockMinimized(true);
+    } else if (selectedEffect !== 'cinematic-swirl') {
+      // Reset preference when switching away from swirl
+      setUserExpandedDock(false);
+      setDockMinimized(false);
+    }
+  }, [selectedEffect, uploadedImage, userExpandedDock]);
 
   // Process full quality when image is first uploaded
   useEffect(() => {
@@ -381,6 +382,7 @@ export default function Home() {
     setIntensity(75);
     setError(null);
     setDockMinimized(false);
+    setUserExpandedDock(false);
   };
 
   const handleSliderDragStart = (e: React.PointerEvent) => {
@@ -592,7 +594,9 @@ export default function Home() {
                 style={{
                   touchAction: 'none',
                   WebkitTouchCallout: 'none',
-                  objectPosition: 'center 35%',
+                  objectPosition: selectedEffect === 'cinematic-swirl' && dockMinimized
+                    ? 'center 40%'
+                    : 'center 35%',
                 }}
                 onTouchEnd={(e) => {
                   e.preventDefault(); // Prevent synthetic click event (fixes double-tap bug)
@@ -620,6 +624,14 @@ export default function Home() {
                   </div>
                 </div>
               )}
+              {/* Mobile: Swirl tap hint when dock minimized */}
+              {selectedEffect === 'cinematic-swirl' && dockMinimized && !showSwirlIndicator && (
+                <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none animate-in fade-in duration-300">
+                  <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm">
+                    Tap to set swirl center
+                  </span>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -644,8 +656,13 @@ export default function Home() {
                 const startY = e.touches[0].clientY;
                 const handleMove = (moveEvent: TouchEvent) => {
                   const deltaY = moveEvent.touches[0].clientY - startY;
-                  if (deltaY > 80) setDockMinimized(true);
-                  else if (deltaY < -80) setDockMinimized(false);
+                  if (deltaY > 80) {
+                    setDockMinimized(true);
+                    setUserExpandedDock(false);
+                  } else if (deltaY < -80) {
+                    setDockMinimized(false);
+                    setUserExpandedDock(true);
+                  }
                 };
                 const handleEnd = () => {
                   document.removeEventListener('touchmove', handleMove);
@@ -659,7 +676,11 @@ export default function Home() {
                 // Track cleanup function for unmount
                 activeTouchListenersRef.current.push(handleEnd);
               }}
-              onClick={() => setDockMinimized(!dockMinimized)}
+              onClick={() => {
+                const newMinimized = !dockMinimized;
+                setDockMinimized(newMinimized);
+                setUserExpandedDock(!newMinimized);
+              }}
             >
               <div className="w-10 h-1 bg-white/30 rounded-full" />
             </div>
@@ -673,8 +694,7 @@ export default function Home() {
                     { id: 'vertical-zoom', icon: Maximize, label: 'Zoom' },
                     { id: 'handheld-drift', icon: Wind, label: 'Drift' },
                     { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
-                    { id: 'soft-light', icon: Sparkles, label: 'Light' },
-                    { id: 'light-trails', icon: Zap, label: 'Trails' },
+                    { id: 'soft-light', icon: Sparkles, label: 'Glow' },
                     { id: 'film-grain', icon: Film, label: 'Grain' },
                   ].map((effect) => {
                     const Icon = effect.icon;
@@ -723,11 +743,6 @@ export default function Home() {
                     }`}>
                       {intensity}%
                     </span>
-                    {selectedEffect === 'light-trails' && (
-                      <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/60">
-                        trails
-                      </span>
-                    )}
                     {selectedEffect === 'soft-light' && (
                       <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/60">
                         glow
@@ -737,22 +752,13 @@ export default function Home() {
                   <div className={`rounded-full relative transition-all ${
                     isDraggingSlider ? 'h-1 bg-white/20' : 'h-0.5 bg-white/10'
                   }`}>
-                    {/* Threshold marker for light-trails */}
-                    {selectedEffect === 'light-trails' && (
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 w-px h-2 bg-white/30 z-10"
-                        style={{ left: '65%' }}
-                      />
-                    )}
                     <div
                       className={`h-full rounded-full ${
                         isDraggingSlider ? '' : 'transition-all'
                       } ${
                         isDraggingSlider
                           ? 'bg-white shadow-[0_0_12px_rgba(255,255,255,0.6)]'
-                          : selectedEffect === 'light-trails' && intensity >= 65
-                            ? 'bg-white/90'
-                            : 'bg-white/60'
+                          : 'bg-white/60'
                       }`}
                       style={{ width: `${intensity}%` }}
                     />

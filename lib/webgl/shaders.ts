@@ -621,3 +621,83 @@ export const passThroughShader = `
     gl_FragColor = texture2D(u_image, v_texCoord);
   }
 `;
+
+// Vintage Halation - Warm glow bleeding from bright areas (70s/80s film stock)
+export const vintageHalationShader = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform vec2 u_resolution;
+  varying vec2 v_texCoord;
+
+  void main() {
+    vec4 original = texture2D(u_image, v_texCoord);
+    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+
+    // Warm halation glow from bright areas
+    vec3 halation = vec3(0.0);
+    float halationWeight = 0.0;
+
+    // Sample ring around current pixel
+    float radius = 0.015;
+    for (int i = 0; i < 16; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 16.0;
+      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+
+      // Only very bright pixels contribute (> 70%)
+      float brightMask = smoothstep(0.70, 0.95, sampleLum);
+
+      // Warm vintage tint: orange/amber glow
+      vec3 warmSample = sample.rgb;
+      warmSample.r *= 1.4;
+      warmSample.g *= 1.1;
+      warmSample.b *= 0.6;
+
+      halation += warmSample * brightMask;
+      halationWeight += brightMask;
+    }
+
+    if (halationWeight > 0.01) {
+      halation /= halationWeight;
+    }
+
+    // Blend halation with original
+    vec3 result = original.rgb + halation * halationWeight * 0.25;
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
+  }
+`;
+
+// Vintage Color Grade - Faded, warm 70s film look
+export const vintageColorGradeShader = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  varying vec2 v_texCoord;
+
+  void main() {
+    vec4 color = texture2D(u_image, v_texCoord);
+    float luminance = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+
+    // Lift blacks slightly (faded look)
+    color.rgb = mix(color.rgb, color.rgb + vec3(0.05, 0.04, 0.03), 0.4);
+
+    // Warm shift (vintage amber tones)
+    color.r *= 1.08;
+    color.g *= 1.02;
+    color.b *= 0.92;
+
+    // Reduce saturation slightly (faded film)
+    vec3 gray = vec3(luminance);
+    color.rgb = mix(gray, color.rgb, 0.85);
+
+    // Soft roll-off on highlights (film latitude)
+    if (luminance > 0.7) {
+      float rolloff = (luminance - 0.7) / 0.3;
+      color.rgb = mix(color.rgb, vec3(1.0), rolloff * 0.15);
+    }
+
+    gl_FragColor = vec4(clamp(color.rgb, 0.0, 1.0), color.a);
+  }
+`;
