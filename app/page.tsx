@@ -676,15 +676,18 @@ export default function Home() {
         {/* Collapsible HUD - fades when adjusting slider for full photo visibility */}
         {uploadedImage && (
           <div
-            className={`fixed bottom-0 left-0 right-0 z-10 bg-black/60 border-t border-white/10 transition-all duration-300 ${
+            className={`fixed bottom-0 left-0 right-0 z-10 transition-all duration-200 ${
               dockMinimized ? 'translate-y-[calc(100%-80px)]' : 'translate-y-0'
+            } ${
+              isDraggingSlider ? 'bg-transparent border-transparent' : 'bg-black/60 border-t border-white/10'
             }`}
             style={{
-              backdropFilter: 'blur(40px)',
-              WebkitBackdropFilter: 'blur(40px)',
+              backdropFilter: isDraggingSlider ? 'none' : 'blur(40px)',
+              WebkitBackdropFilter: isDraggingSlider ? 'none' : 'blur(40px)',
             }}
           >
-            {/* Swipe Handle */}
+            {/* Swipe Handle - hidden when dragging slider */}
+            {!isDraggingSlider && (
             <div
               className="flex justify-center py-3 cursor-pointer touch-none"
               onTouchStart={(e) => {
@@ -719,6 +722,7 @@ export default function Home() {
             >
               <div className="w-10 h-1 bg-white/30 rounded-full" />
             </div>
+            )}
 
             {!dockMinimized && (
               <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
