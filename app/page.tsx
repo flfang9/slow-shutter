@@ -40,6 +40,8 @@ export default function Home() {
   const [showCropModal, setShowCropModal] = useState(false);
   const [showingBefore, setShowingBefore] = useState(false);
   const [swirlCenter, setSwirlCenter] = useState({ x: 0.5, y: 0.45 });
+  const [showSwirlIndicator, setShowSwirlIndicator] = useState(false);
+  const swirlIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -338,6 +340,15 @@ export default function Home() {
       const newSwirlCenter = { x: clampedX, y: 1.0 - clampedY };
       setSwirlCenter(newSwirlCenter);
 
+      // Show indicator briefly
+      setShowSwirlIndicator(true);
+      if (swirlIndicatorTimeoutRef.current) {
+        clearTimeout(swirlIndicatorTimeoutRef.current);
+      }
+      swirlIndicatorTimeoutRef.current = setTimeout(() => {
+        setShowSwirlIndicator(false);
+      }, 800);
+
       // Re-process immediately with new center for instant feedback
       processPreviewImmediate(selectedEffect, intensity, newSwirlCenter);
       processFullQuality(selectedEffect, intensity, newSwirlCenter);
@@ -449,21 +460,20 @@ export default function Home() {
                         });
                       }}
                     />
-                    {/* Swirl center indicator */}
-                    {selectedEffect === 'cinematic-swirl' && !showingBefore && (
+                    {/* Swirl center indicator - minimal crosshair, fades after tap */}
+                    {selectedEffect === 'cinematic-swirl' && !showingBefore && showSwirlIndicator && (
                       <div
-                        className="absolute pointer-events-none transition-all duration-200"
+                        className="absolute pointer-events-none animate-in fade-in duration-100"
                         style={{
-                          left: `calc(5% + ${swirlCenter.x * 90}%)`,
-                          top: `calc(7.5% + ${(1 - swirlCenter.y) * 85}%)`,
+                          left: `${swirlCenter.x * 100}%`,
+                          top: `${(1 - swirlCenter.y) * 100}%`,
                           transform: 'translate(-50%, -50%)',
                         }}
                       >
-                        <div className="w-8 h-8 rounded-full border border-white/40 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                        </div>
-                        <div className="text-[9px] text-white/40 text-center mt-1 whitespace-nowrap">
-                          tap to move
+                        {/* Minimal crosshair */}
+                        <div className="relative w-6 h-6">
+                          <div className="absolute left-1/2 top-0 w-px h-full bg-white/50 -translate-x-1/2" />
+                          <div className="absolute top-1/2 left-0 h-px w-full bg-white/50 -translate-y-1/2" />
                         </div>
                       </div>
                     )}
@@ -593,18 +603,20 @@ export default function Home() {
                 onPointerLeave={handleCompareEnd}
                 onContextMenu={(e) => e.preventDefault()}
               />
-              {/* Mobile: Swirl center indicator */}
-              {selectedEffect === 'cinematic-swirl' && !showingBefore && (
+              {/* Mobile: Swirl center indicator - minimal crosshair, fades after tap */}
+              {selectedEffect === 'cinematic-swirl' && !showingBefore && showSwirlIndicator && (
                 <div
-                  className="absolute pointer-events-none transition-all duration-200"
+                  className="absolute pointer-events-none animate-in fade-in duration-100"
                   style={{
                     left: `${swirlCenter.x * 100}%`,
                     top: `${(1 - swirlCenter.y) * 100}%`,
                     transform: 'translate(-50%, -50%)',
                   }}
                 >
-                  <div className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center backdrop-blur-sm">
-                    <div className="w-2 h-2 rounded-full bg-white/50" />
+                  {/* Minimal crosshair */}
+                  <div className="relative w-8 h-8">
+                    <div className="absolute left-1/2 top-0 w-px h-full bg-white/60 -translate-x-1/2" />
+                    <div className="absolute top-1/2 left-0 h-px w-full bg-white/60 -translate-y-1/2" />
                   </div>
                 </div>
               )}
