@@ -43,6 +43,7 @@ export default function Home() {
   const [showSwirlIndicator, setShowSwirlIndicator] = useState(false);
   const [swirlIndicatorPos, setSwirlIndicatorPos] = useState({ x: 0, y: 0 }); // Screen position for crosshair
   const [userExpandedDock, setUserExpandedDock] = useState(false);
+  const [enhanceEnabled, setEnhanceEnabled] = useState(false);
   const swirlIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -151,6 +152,9 @@ export default function Home() {
     }
   }, [selectedEffect, intensity]);
 
+  const enhanceEnabledRef = useRef(enhanceEnabled);
+  useEffect(() => { enhanceEnabledRef.current = enhanceEnabled; }, [enhanceEnabled]);
+
   const processPreviewImmediate = useCallback(async (effectOverride?: EffectType, intensityOverride?: number, swirlCenterOverride?: { x: number; y: number }) => {
     if (!previewImage || !previewProcessorRef.current) return;
     // Skip if already processing, but don't block forever
@@ -165,7 +169,11 @@ export default function Home() {
         previewImage,
         effectOverride ?? effectRef.current,
         intensityOverride ?? intensityRef.current,
-        { swirlCenter: swirlCenterOverride ?? swirlCenter }
+        {
+          swirlCenter: swirlCenterOverride ?? swirlCenter,
+          enhance: enhanceEnabledRef.current,
+          enhanceIntensity: 0.7
+        }
       );
       setProcessedCanvas(result);
     } catch (err) {
@@ -192,7 +200,11 @@ export default function Home() {
         uploadedImage,
         effectOverride ?? effectRef.current,
         intensityOverride ?? intensityRef.current,
-        { swirlCenter: swirlCenterOverride ?? swirlCenter }
+        {
+          swirlCenter: swirlCenterOverride ?? swirlCenter,
+          enhance: enhanceEnabledRef.current,
+          enhanceIntensity: 0.7
+        }
       );
       setProcessedCanvas(result);
     } catch (err) {
@@ -265,6 +277,15 @@ export default function Home() {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intensity]);
+
+  // Re-process when enhance toggle changes
+  useEffect(() => {
+    if (!previewImage || !uploadedImage) return;
+    processPreviewImmediate(selectedEffect, intensity);
+    const timeout = setTimeout(() => processFullQuality(selectedEffect, intensity), 100);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enhanceEnabled]);
 
   // Keyboard shortcut: Hold spacebar to show before (desktop)
   useEffect(() => {
@@ -389,6 +410,7 @@ export default function Home() {
     setError(null);
     setDockMinimized(false);
     setUserExpandedDock(false);
+    setEnhanceEnabled(false);
   };
 
   const sliderBarRef = useRef<HTMLDivElement>(null);
@@ -596,8 +618,23 @@ export default function Home() {
 
               <LensDial value={intensity} onChange={setIntensity} effect={selectedEffect} />
 
-              {/* Compare Button */}
+              {/* Enhance Toggle */}
               <div className="pt-4">
+                <button
+                  onClick={() => setEnhanceEnabled(!enhanceEnabled)}
+                  className={`w-full px-4 py-3 text-sm font-medium rounded-lg border transition-all flex items-center justify-center gap-2 ${
+                    enhanceEnabled
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/50'
+                      : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
+                  }`}
+                >
+                  <Zap className={`w-4 h-4 ${enhanceEnabled ? 'fill-amber-400' : ''}`} />
+                  Enhance {enhanceEnabled ? 'On' : 'Off'}
+                </button>
+              </div>
+
+              {/* Compare Button */}
+              <div className="pt-2">
                 <button
                   onClick={() => setShowingBefore(!showingBefore)}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-lg border transition-all ${
@@ -829,7 +866,7 @@ export default function Home() {
 
                 {/* Row 2: Gesture Slider Area - always visible */}
                 <div
-                  className="px-2 py-4"
+                  className="px-2 py-4 outline-none select-none"
                   onTouchStart={(e) => {
                     const touch = e.touches[0];
                     const pointerEvent = {
@@ -896,12 +933,26 @@ export default function Home() {
               </div>
             )}
 
-            {/* Compare Button - hidden when dragging slider */}
+            {/* Enhance + Compare Buttons - hidden when dragging slider */}
             {!dockMinimized && (
               <div
-                className="px-4 pt-4 border-t border-white/10 transition-opacity duration-100"
+                className="px-4 pt-4 border-t border-white/10 transition-opacity duration-100 space-y-2"
                 style={{ opacity: isDraggingSlider ? 0 : 1, pointerEvents: isDraggingSlider ? 'none' : 'auto' }}
               >
+                {/* Enhance Toggle */}
+                <button
+                  onClick={() => setEnhanceEnabled(!enhanceEnabled)}
+                  className={`w-full px-4 py-3 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    enhanceEnabled
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
+                      : 'bg-white/5 text-white/60 border border-white/10'
+                  }`}
+                >
+                  <Zap className={`w-4 h-4 ${enhanceEnabled ? 'fill-amber-400' : ''}`} />
+                  Enhance {enhanceEnabled ? 'On' : 'Off'}
+                </button>
+
+                {/* Compare Button */}
                 <button
                   onClick={() => setShowingBefore(!showingBefore)}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-lg transition-all ${

@@ -118,10 +118,15 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Remove focus outlines for touch/mouse, keep for keyboard */
+  *:focus:not(:focus-visible) {
+    outline: none;
   }
 }
 

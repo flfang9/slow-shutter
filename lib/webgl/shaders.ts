@@ -704,6 +704,130 @@ export const passThroughShader = `
   }
 `;
 
+// ENHANCE - Scene-aware post-processing boost
+// Stacks ON TOP of any effect, doesn't modify effects themselves
+// Silent scene detection: night (boost lights/contrast), day (protect highlights, add punch)
+export const enhanceShader = `
+  precision highp float;
+  uniform sampler2D u_image;
+  uniform float u_intensity;
+  uniform vec2 u_resolution;
+  varying vec2 v_texCoord;
+
+  void main() {
+    vec4 original = texture2D(u_image, v_texCoord);
+
+    if (u_intensity < 0.001) {
+      gl_FragColor = original;
+      return;
+    }
+
+    vec3 color = original.rgb;
+    float ic = u_intensity;
+
+    // ================================================================
+    // SCENE DETECTION (silent, based on sampling)
+    // ================================================================
+    // Sample 9 points to estimate scene characteristics
+    float totalLum = 0.0;
+    float maxLum = 0.0;
+    float minLum = 1.0;
+    float brightPoints = 0.0;
+
+    for (int y = 0; y < 3; y++) {
+      for (int x = 0; x < 3; x++) {
+        vec2 samplePos = vec2(float(x) + 0.5, float(y) + 0.5) / 3.0;
+        vec3 s = texture2D(u_image, samplePos).rgb;
+        float l = dot(s, vec3(0.299, 0.587, 0.114));
+        totalLum += l;
+        maxLum = max(maxLum, l);
+        minLum = min(minLum, l);
+        if (l > 0.7) brightPoints += 1.0;
+      }
+    }
+
+    float avgLum = totalLum / 9.0;
+    float contrast = maxLum - minLum;
+
+    // Scene classification
+    // Night: low avg luminance (<0.3), may have bright point lights
+    // Day: higher avg luminance (>0.4)
+    // Mixed/Golden: in between
+    float isNight = smoothstep(0.35, 0.15, avgLum);
+    float isDay = smoothstep(0.35, 0.55, avgLum);
+    float hasBrightLights = smoothstep(1.0, 4.0, brightPoints);
+
+    // Current pixel luminance
+    float lum = dot(color, vec3(0.299, 0.587, 0.114));
+
+    // ================================================================
+    // NIGHT ENHANCEMENTS
+    // ================================================================
+    // Boost contrast, enhance bright points, deepen shadows
+
+    // A. Contrast boost (S-curve)
+    float nightContrast = isNight * ic * 0.4;
+    vec3 nightColor = color;
+    nightColor = (nightColor - 0.5) * (1.0 + nightContrast) + 0.5;
+
+    // B. Bloom on bright points (light sources pop more)
+    if (lum > 0.6 && isNight > 0.3) {
+      float bloomAmount = smoothstep(0.6, 0.95, lum) * isNight * ic * 0.15;
+      nightColor += nightColor * bloomAmount;
+    }
+
+    // C. Deepen shadows for night
+    float shadowDeepen = isNight * ic * 0.08;
+    nightColor = max(vec3(0.0), nightColor - shadowDeepen * (1.0 - lum));
+
+    // ================================================================
+    // DAY ENHANCEMENTS
+    // ================================================================
+    // Protect highlights, add color punch, subtle clarity
+
+    vec3 dayColor = color;
+
+    // A. Highlight protection (soft roll-off)
+    if (lum > 0.85 && isDay > 0.3) {
+      float excess = (lum - 0.85) / 0.15;
+      float protection = 1.0 - excess * isDay * ic * 0.3;
+      dayColor *= protection;
+    }
+
+    // B. Color punch (vibrance boost on less-saturated colors)
+    float maxC = max(max(dayColor.r, dayColor.g), dayColor.b);
+    float minC = min(min(dayColor.r, dayColor.g), dayColor.b);
+    float sat = (maxC - minC) / max(maxC, 0.001);
+    float vibranceBoost = (1.0 - sat) * isDay * ic * 0.25;
+    vec3 dayGray = vec3(dot(dayColor, vec3(0.299, 0.587, 0.114)));
+    dayColor = mix(dayGray, dayColor, 1.0 + vibranceBoost);
+
+    // C. Subtle clarity (local contrast in midtones)
+    float midMask = smoothstep(0.2, 0.4, lum) * (1.0 - smoothstep(0.6, 0.8, lum));
+    float clarity = isDay * ic * 0.1 * midMask;
+    dayColor = mix(dayColor, dayColor * (1.0 + (lum - 0.5) * 0.5), clarity);
+
+    // ================================================================
+    // BLEND BASED ON SCENE
+    // ================================================================
+    // Interpolate between night and day enhancements
+
+    color = mix(color, nightColor, isNight);
+    color = mix(color, dayColor, isDay);
+
+    // For mixed scenes, apply subtle universal boost
+    float isMixed = 1.0 - max(isNight, isDay);
+    if (isMixed > 0.2) {
+      // Gentle contrast + saturation
+      color = (color - 0.5) * (1.0 + isMixed * ic * 0.15) + 0.5;
+      vec3 mixedGray = vec3(dot(color, vec3(0.299, 0.587, 0.114)));
+      color = mix(mixedGray, color, 1.0 + isMixed * ic * 0.1);
+    }
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), original.a);
+  }
+`;
+
 // Vintage Halation - Warm glow bleeding from bright areas (70s/80s film stock)
 export const vintageHalationShader = `
   precision mediump float;

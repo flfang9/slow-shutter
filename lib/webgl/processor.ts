@@ -16,6 +16,7 @@ import {
   passThroughShader,
   vintageHalationShader,
   vintageColorGradeShader,
+  enhanceShader,
 } from './shaders';
 
 export class EffectProcessor {
@@ -105,6 +106,7 @@ export class EffectProcessor {
       'bloom': bloomShader,
       'contrast-curve': contrastCurveShader,
       'pass-through': passThroughShader,
+      'enhance': enhanceShader,
     };
 
     console.log('Compiling shaders...');
@@ -216,7 +218,7 @@ export class EffectProcessor {
     image: HTMLImageElement,
     effect: EffectType,
     intensity: number,
-    options?: { swirlCenter?: { x: number; y: number } }
+    options?: { swirlCenter?: { x: number; y: number }; enhance?: boolean; enhanceIntensity?: number }
   ): Promise<HTMLCanvasElement> {
     console.log(`applyEffect called: effect=${effect}, intensity=${intensity}, image=${image.width}x${image.height}`);
 
@@ -274,7 +276,20 @@ export class EffectProcessor {
       console.error(`Effect program not found: ${effect}`);
     }
 
-    // Post-processing stack removed - filmicGrainShader handles everything in one pass
+    // Step 2: Apply enhance pass if enabled (stacks on top of any effect)
+    if (options?.enhance) {
+      const enhanceProgram = this.programs.get('enhance');
+      if (enhanceProgram) {
+        const oldTexture = currentTexture;
+        const enhanceIntensity = options.enhanceIntensity ?? 0.7; // Default 70%
+        currentTexture = this.renderPass(enhanceProgram, currentTexture, {
+          u_intensity: enhanceIntensity,
+          u_resolution: resolution,
+        });
+        texturesToCleanup.push(oldTexture);
+        console.log(`Enhance pass applied with intensity: ${enhanceIntensity}`);
+      }
+    }
 
     // Final render to canvas
     console.log('Rendering final result to canvas');
