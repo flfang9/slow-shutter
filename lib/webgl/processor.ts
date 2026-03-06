@@ -255,16 +255,11 @@ export class EffectProcessor {
     if (effectProgram) {
       const oldTexture = currentTexture;
 
-      // Build uniforms - add angle for light-trails effect
+      // Build uniforms
       const uniforms: Record<string, any> = {
         u_intensity: normalizedIntensity,
         u_resolution: resolution,
       };
-
-      // Default angle: 0 = horizontal trails (like city lights)
-      if (effect === 'light-trails') {
-        uniforms.u_angle = 0;
-      }
 
       // Swirl center (from user tap or default)
       if (effect === 'cinematic-swirl') {
