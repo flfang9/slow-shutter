@@ -676,20 +676,21 @@ export default function Home() {
         {/* Collapsible HUD - fades when adjusting slider for full photo visibility */}
         {uploadedImage && (
           <div
-            className={`fixed bottom-0 left-0 right-0 z-10 transition-all duration-200 ${
+            className={`fixed bottom-0 left-0 right-0 z-10 transition-all duration-100 ${
               dockMinimized ? 'translate-y-[calc(100%-80px)]' : 'translate-y-0'
-            } ${
-              isDraggingSlider ? 'bg-transparent border-transparent' : 'bg-black/60 border-t border-white/10'
             }`}
             style={{
+              background: isDraggingSlider ? 'transparent' : 'rgba(0, 0, 0, 0.6)',
+              borderTop: isDraggingSlider ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
               backdropFilter: isDraggingSlider ? 'none' : 'blur(40px)',
               WebkitBackdropFilter: isDraggingSlider ? 'none' : 'blur(40px)',
             }}
           >
             {/* Swipe Handle - hidden when dragging slider */}
-            {!isDraggingSlider && (
             <div
-              className="flex justify-center py-3 cursor-pointer touch-none"
+              className="flex justify-center py-3 cursor-pointer touch-none transition-opacity duration-100"
+              style={{ opacity: isDraggingSlider ? 0 : 1, pointerEvents: isDraggingSlider ? 'none' : 'auto' }}
+
               onTouchStart={(e) => {
                 const startY = e.touches[0].clientY;
                 const handleMove = (moveEvent: TouchEvent) => {
@@ -722,14 +723,13 @@ export default function Home() {
             >
               <div className="w-10 h-1 bg-white/30 rounded-full" />
             </div>
-            )}
 
             {!dockMinimized && (
               <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-4">
                 {/* Row 1: Effect Icons - hides when adjusting slider */}
-                {!isDraggingSlider && (
                 <div
                   className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1 transition-opacity duration-100"
+                  style={{ opacity: isDraggingSlider ? 0 : 1, pointerEvents: isDraggingSlider ? 'none' : 'auto' }}
                 >
                   {[
                     { id: 'lateral-motion', icon: MoveRight, label: 'Motion' },
@@ -768,7 +768,6 @@ export default function Home() {
                     );
                   })}
                 </div>
-                )}
 
                 {/* Row 2: Gesture Slider Area - always visible */}
                 <div
@@ -815,8 +814,11 @@ export default function Home() {
             )}
 
             {/* Compare Button - hidden when dragging slider */}
-            {!dockMinimized && !isDraggingSlider && (
-              <div className="px-4 pt-4 border-t border-white/10">
+            {!dockMinimized && (
+              <div
+                className="px-4 pt-4 border-t border-white/10 transition-opacity duration-100"
+                style={{ opacity: isDraggingSlider ? 0 : 1, pointerEvents: isDraggingSlider ? 'none' : 'auto' }}
+              >
                 <button
                   onClick={() => setShowingBefore(!showingBefore)}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-lg transition-all ${
@@ -831,8 +833,10 @@ export default function Home() {
             )}
 
             {/* Crop | Share | New Buttons - hidden when dragging slider */}
-            {!isDraggingSlider && (
-            <div className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-3'}`}>
+            <div
+              className={`px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] ${dockMinimized ? '' : 'pt-3'} transition-opacity duration-100`}
+              style={{ opacity: isDraggingSlider ? 0 : 1, pointerEvents: isDraggingSlider ? 'none' : 'auto' }}
+            >
               <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => setShowCropModal(true)}
@@ -896,7 +900,6 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            )}
           </div>
         )}
       </div>
