@@ -10,7 +10,7 @@ interface CropModalProps {
 }
 
 const ASPECT_RATIOS = [
-  { id: 'original', label: 'Original', ratio: null },
+  { id: 'original', label: 'Original', ratio: -1 }, // -1 = use image's native ratio
   { id: '9:16', label: '9:16', ratio: 9 / 16 },
   { id: '4:5', label: '4:5', ratio: 4 / 5 },
   { id: '1:1', label: '1:1', ratio: 1 },
@@ -32,6 +32,14 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
 
   // Memoize the data URL to prevent expensive re-computation
   const imageDataUrl = useMemo(() => image.toDataURL('image/jpeg', 0.9), [image]);
+
+  // Calculate effective aspect ratio (use image's native ratio for "Original")
+  const effectiveRatio = useMemo(() => {
+    if (selectedRatio.ratio === -1) {
+      return image.width / image.height;
+    }
+    return selectedRatio.ratio;
+  }, [selectedRatio.ratio, image.width, image.height]);
 
   useEffect(() => {
     setPosition({ x: 0, y: 0 });
@@ -108,22 +116,19 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
     const frameRect = cropFrame.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    // Calculate crop dimensions
-    let cropWidth = frameRect.width;
-    let cropHeight = frameRect.height;
+    // Calculate crop dimensions based on effective aspect ratio
+    let cropWidth: number;
+    let cropHeight: number;
 
-    // Determine output dimensions based on aspect ratio
-    if (selectedRatio.ratio !== null) {
-      const maxSize = 2000; // Max output dimension
-      if (selectedRatio.ratio > 1) {
-        // Landscape
-        cropWidth = maxSize;
-        cropHeight = maxSize / selectedRatio.ratio;
-      } else {
-        // Portrait or square
-        cropHeight = maxSize;
-        cropWidth = maxSize * selectedRatio.ratio;
-      }
+    const maxSize = 2000; // Max output dimension
+    if (effectiveRatio >= 1) {
+      // Landscape or square
+      cropWidth = maxSize;
+      cropHeight = maxSize / effectiveRatio;
+    } else {
+      // Portrait
+      cropHeight = maxSize;
+      cropWidth = maxSize * effectiveRatio;
     }
 
     // Create output canvas
@@ -232,14 +237,13 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
           <div
             className="crop-frame relative border-2 border-white"
             style={{
-              width: selectedRatio.ratio
-                ? selectedRatio.ratio > 1
-                  ? '90%'
-                  : `${90 * selectedRatio.ratio}%`
-                : '90%',
-              aspectRatio: selectedRatio.ratio || 'auto',
+              // For landscape (ratio > 1): width-constrained
+              // For portrait (ratio < 1): height-constrained
+              // For square (ratio = 1): use smaller of width/height
+              width: effectiveRatio >= 1 ? '85vw' : `calc(70vh * ${effectiveRatio})`,
+              height: effectiveRatio >= 1 ? `calc(85vw / ${effectiveRatio})` : '70vh',
               maxWidth: '90%',
-              maxHeight: '80vh',
+              maxHeight: '75vh',
             }}
           >
             {/* Corner Brackets */}
@@ -277,8 +281,8 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
                     : 'border-white/30'
                 }`}
               >
-                {ratio.ratio === null ? (
-                  <div className="w-8 h-8 border border-white/50 rounded" />
+                {ratio.ratio === -1 ? (
+                  <div className="w-8 h-6 border border-white/50 rounded" />
                 ) : ratio.ratio < 1 ? (
                   <div className="w-4 h-8 bg-white/50 rounded" />
                 ) : ratio.ratio === 1 ? (
