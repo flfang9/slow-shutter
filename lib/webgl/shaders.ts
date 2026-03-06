@@ -158,15 +158,18 @@ export const cinematicSwirlShader = `
     vec4 color = vec4(0.0);
     float total = 0.0;
 
-    int samples = int(mix(12.0, 35.0, u_intensity));
-    float zoomStrength = mix(0.01, 0.12, u_intensity);
-    float rotationStrength = mix(0.0, 0.15, u_intensity);
+    // Gentler intensity curve for more natural progression
+    float intensityCurve = u_intensity * u_intensity;
+
+    int samples = int(mix(12.0, 35.0, intensityCurve));
+    float zoomStrength = mix(0.01, 0.12, intensityCurve);
+    float rotationStrength = mix(0.0, 0.15, intensityCurve);
 
     // Subject preservation - keep center completely clear
     // Inner radius: completely sharp, no blur
     // Outer radius: full effect
-    float innerRadius = 0.08;  // Clear center zone
-    float outerRadius = 0.35;  // Full effect zone
+    float innerRadius = 0.03;  // Clear center zone (reduced from 0.08)
+    float outerRadius = 0.25;  // Full effect zone (reduced from 0.35)
     float centerFalloff = smoothstep(innerRadius, outerRadius, distance);
 
     // Apply falloff to both effects
@@ -400,9 +403,8 @@ export const contrastCurveShader = `
   }
 `;
 
-// Soft Light - Halation + edge glow (Film stock light bleed)
-// Soft Light - DaVinci-style Halation + Secondary Glow
-// Bright lights get warm glow, dark areas stay dark
+// Soft Light - Instagram-style subtle glow
+// Lifts midtones and adds dreamy glow to highlights without overexposure
 export const softLightShader = `
   precision mediump float;
   uniform sampler2D u_image;
@@ -420,128 +422,67 @@ export const softLightShader = `
 
     float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    // === HALATION: Warm glow bleeding from bright areas ===
-    vec3 halation = vec3(0.0);
-    float halationWeight = 0.0;
+    // Quadratic intensity curve for gentle progression
+    float intensityCurve = u_intensity * u_intensity;
 
-    // Inner halation ring (tighter, more saturated)
-    float innerRadius = mix(0.008, 0.025, u_intensity);
-    for (int i = 0; i < 16; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 16.0;
-      vec2 offset = vec2(cos(angle), sin(angle)) * innerRadius;
-
-      vec4 sample = texture2D(u_image, v_texCoord + offset);
-      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-
-      // Only very bright pixels contribute (>75%)
-      float brightMask = smoothstep(0.70, 0.95, sampleLum);
-
-      // Warm tint: shift toward orange/gold
-      vec3 warmSample = sample.rgb;
-      warmSample.r *= 1.3;
-      warmSample.g *= 1.05;
-      warmSample.b *= 0.7;
-
-      halation += warmSample * brightMask;
-      halationWeight += brightMask;
-    }
-
-    // Outer halation ring (wider, softer)
-    float outerRadius = mix(0.02, 0.06, u_intensity);
-    for (int i = 0; i < 24; i++) {
-      float angle = float(i) * 3.14159 * 2.0 / 24.0;
-      vec2 offset = vec2(cos(angle), sin(angle)) * outerRadius;
-
-      vec4 sample = texture2D(u_image, v_texCoord + offset);
-      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-
-      // Slightly lower threshold for outer glow
-      float brightMask = smoothstep(0.65, 0.90, sampleLum);
-
-      // Even warmer tint for outer glow
-      vec3 warmSample = sample.rgb;
-      warmSample.r *= 1.4;
-      warmSample.g *= 1.0;
-      warmSample.b *= 0.6;
-
-      halation += warmSample * brightMask * 0.6; // Softer weight
-      halationWeight += brightMask * 0.6;
-    }
-
-    // === SECONDARY GLOW: Extended soft bloom ===
-    vec3 secondaryGlow = vec3(0.0);
+    // === Subtle Glow on Highlights ===
+    vec3 glow = vec3(0.0);
     float glowWeight = 0.0;
 
-    float glowRadius = mix(0.04, 0.12, u_intensity);
-    for (int ring = 0; ring < 3; ring++) {
-      float ringRadius = glowRadius * (float(ring) + 1.0) / 3.0;
-      float ringFalloff = 1.0 - float(ring) * 0.35;
+    // Single soft glow pass (wider radius for dreamy effect)
+    float glowRadius = mix(0.012, 0.035, intensityCurve);
+    for (int i = 0; i < 12; i++) {
+      float angle = float(i) * 3.14159 * 2.0 / 12.0;
+      vec2 offset = vec2(cos(angle), sin(angle)) * glowRadius;
 
-      for (int i = 0; i < 16; i++) {
-        float angle = float(i) * 3.14159 * 2.0 / 16.0 + float(ring) * 0.4;
-        vec2 offset = vec2(cos(angle), sin(angle)) * ringRadius;
+      vec4 sample = texture2D(u_image, v_texCoord + offset);
+      float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
 
-        vec4 sample = texture2D(u_image, v_texCoord + offset);
-        float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+      // Only moderately bright pixels contribute (softer threshold)
+      float brightMask = smoothstep(0.50, 0.85, sampleLum);
 
-        // Only bright areas
-        float brightMask = smoothstep(0.60, 0.85, sampleLum);
+      // Very subtle warm tint
+      vec3 warmSample = sample.rgb;
+      warmSample.r *= 1.05;
+      warmSample.b *= 0.98;
 
-        // Slight warm tint
-        vec3 warmSample = sample.rgb;
-        warmSample.r *= 1.15;
-        warmSample.g *= 1.02;
-        warmSample.b *= 0.85;
-
-        secondaryGlow += warmSample * brightMask * ringFalloff;
-        glowWeight += brightMask * ringFalloff;
-      }
+      glow += warmSample * brightMask;
+      glowWeight += brightMask;
     }
 
-    // Normalize
-    if (halationWeight > 0.01) halation /= halationWeight;
-    if (glowWeight > 0.01) secondaryGlow /= glowWeight;
+    if (glowWeight > 0.01) {
+      glow /= glowWeight;
+    }
 
-    // === COMPOSITE: Additive blend (preserves dark areas) ===
+    // === COMPOSITE: Soft blend (Instagram Soft Light style) ===
     vec3 result = original.rgb;
 
-    // Halation strength (more intense, tighter)
-    float halationStrength = u_intensity * 0.7;
-    result += halation * halationStrength * halationWeight * 0.15;
+    // Lift midtones slightly (opens up shadows without crushing blacks)
+    float midtoneLift = intensityCurve * 0.08;
+    result = mix(result, sqrt(result), midtoneLift * (1.0 - luminance)); // Lift shadows more than highlights
 
-    // Secondary glow strength (softer, wider)
-    float glowStrength = u_intensity * 0.5;
-    result += secondaryGlow * glowStrength * glowWeight * 0.1;
+    // Add subtle glow to bright areas (no overexposure)
+    float glowStrength = intensityCurve * 0.3;
+    result += glow * glowStrength * glowWeight * 0.08;
 
-    // Slight contrast boost to keep darks punchy
-    result = mix(result, result * result * (3.0 - 2.0 * result), 0.08 * u_intensity);
+    // Very subtle warmth overall
+    result.r *= 1.0 + (intensityCurve * 0.02);
+    result.b *= 1.0 - (intensityCurve * 0.01);
 
     gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
   }
 `;
 
-// Light Trails - Directional Accumulation with Chromatic Bleed + Comet Effect
-// Simulates slow shutter light streaks with 10 echoes
-// Phase 1 (0-65%): Brightness boost only - lights get "hotter"
-// Phase 2 (65-100%): Trails fade in with comet opacity curve (variable velocity)
+// Light Trails - Long Smooth Light Streaks
+// Creates long, continuous light trails like slow shutter car lights
+// Strong chromatic separation with smooth blending
 export const lightTrailsShader = `
   precision mediump float;
   uniform sampler2D u_image;
-  uniform float u_intensity;  // Controls trail length
+  uniform float u_intensity;  // Controls trail length and strength
   uniform vec2 u_resolution;
   uniform float u_angle;      // Trail direction 0-360 degrees
   varying vec2 v_texCoord;
-
-  // Cubic bezier approximation for comet curve
-  float cometBezier(float t) {
-    // Control points create U-shape: bright at start, dim in middle, bright at end
-    // Simulates variable camera velocity (acceleration/deceleration)
-    float t2 = t * 2.0 - 1.0; // Remap to -1 to 1
-    float u = t2 * t2;        // Parabola (0 at edges, 1 at middle)
-    // Cubic ease for smoother falloff
-    float cubic = u * u * (3.0 - 2.0 * u);
-    return 1.0 - cubic * 0.65; // 0.35 at middle, 1.0 at edges
-  }
 
   void main() {
     vec4 original = texture2D(u_image, v_texCoord);
@@ -553,34 +494,6 @@ export const lightTrailsShader = `
 
     float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
 
-    // === PHASE 1: Brightness boost (0-65%) ===
-    // Lights get progressively "hotter" before trails appear
-    // Creates anticipation and visual coherence
-    float brightnessPhase = smoothstep(0.0, 0.65, u_intensity);
-    float brightBoost = mix(1.0, 1.5, brightnessPhase);
-
-    // Graduated bright mask - more aggressive at higher intensities
-    float brightThreshold = mix(0.55, 0.45, brightnessPhase);
-    float brightMaskOrig = smoothstep(brightThreshold, 0.85, luminance);
-
-    vec3 boostedOriginal = original.rgb;
-    // Warm shift on boosted highlights (subtle)
-    vec3 warmBoost = original.rgb;
-    warmBoost.r *= 1.08;
-    warmBoost.b *= 0.95;
-    boostedOriginal = mix(original.rgb, warmBoost, brightMaskOrig * brightnessPhase * 0.5);
-    boostedOriginal += original.rgb * brightMaskOrig * (brightBoost - 1.0) * 0.9;
-
-    // === PHASE 2: Trails (65-100%) ===
-    // Sharp transition - trails "click on" at 65%
-    float trailPhase = smoothstep(0.62, 0.75, u_intensity);
-
-    if (trailPhase < 0.01) {
-      // No trails yet, just brightness boost
-      gl_FragColor = vec4(clamp(boostedOriginal, 0.0, 1.0), original.a);
-      return;
-    }
-
     // Convert angle to radians and calculate direction vector
     float angleRad = u_angle * 0.017453292519943295; // PI / 180
     vec2 direction = vec2(cos(angleRad), sin(angleRad));
@@ -588,43 +501,39 @@ export const lightTrailsShader = `
     // Aspect ratio correction for proper diagonal trails
     vec2 aspectCorrection = vec2(1.0, u_resolution.x / u_resolution.y);
 
-    // Trail length ramps up quickly once trails appear
-    float trailLength = mix(0.03, 0.22, trailPhase * trailPhase); // Quadratic ramp
+    // Much longer trails - quadratic curve for smooth ramp
+    float trailLength = u_intensity * u_intensity * 0.65; // 2.5x longer than before
 
-    // === Directional Accumulation with Comet Effect (12 echoes for smoother curve) ===
+    // More samples for ultra-smooth continuous streaks (20 samples)
     vec3 trailAccum = vec3(0.0);
     float totalWeight = 0.0;
 
-    for (int i = 0; i < 12; i++) {
-      float t = float(i) / 11.0; // 0.0 to 1.0
+    for (int i = 0; i < 20; i++) {
+      float t = float(i) / 19.0; // 0.0 to 1.0
 
-      // === COMET EFFECT: Bezier curve opacity ===
-      // Brighter at start (t=0) and end (t=1), dimmer in middle (t=0.5)
-      // Creates the "variable camera velocity" look
-      float cometCurve = cometBezier(t);
-
-      // Base opacity with slight front-weighting
-      float baseOpacity = 1.0 - t * 0.5;
-      float echoOpacity = baseOpacity * cometCurve;
+      // Very gentle exponential falloff for long smooth trails
+      float falloff = exp(-1.8 * t); // Gentler than before (-1.8 vs -3.0)
+      float echoOpacity = falloff;
 
       // Offset position along trail direction
       vec2 offset = direction * aspectCorrection * t * trailLength;
       vec4 sample = texture2D(u_image, v_texCoord + offset);
 
-      // Only bright pixels contribute - threshold loosens as trails intensify
+      // Only bright pixels contribute - lower threshold for more visible trails
       float sampleLum = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-      float trailThreshold = mix(0.60, 0.50, trailPhase);
-      float brightMask = smoothstep(trailThreshold, 0.90, sampleLum);
+      float brightThreshold = mix(0.50, 0.40, u_intensity);
+      float brightMask = smoothstep(brightThreshold, 0.82, sampleLum);
 
-      // === Chromatic Bleed (RGB Split) - Enhanced ===
+      // Strong chromatic separation (like car lights: red, yellow, green, cyan)
       vec3 chromaShift = sample.rgb;
-      float chromaAmount = t * 0.55 * trailPhase;
-      // Red leads, blue trails - classic light streak look
-      chromaShift.r *= 1.0 - chromaAmount * 0.4;
-      chromaShift.g *= 1.0 + chromaAmount * 0.1;
-      chromaShift.b *= 1.0 + chromaAmount * 0.55;
+      float chromaAmount = t * 0.7 * u_intensity; // Stronger chroma split
 
-      // Accumulate with comet opacity
+      // Enhanced RGB split for vivid color trails
+      chromaShift.r *= 1.0 - chromaAmount * 0.35; // Red fades back
+      chromaShift.g *= 1.0 + chromaAmount * 0.15; // Green stays strong
+      chromaShift.b *= 1.0 + chromaAmount * 0.55; // Blue intensifies at tail
+
+      // Accumulate with smooth weighting
       float weight = brightMask * echoOpacity;
       trailAccum += chromaShift * weight;
       totalWeight += weight;
@@ -634,13 +543,16 @@ export const lightTrailsShader = `
       trailAccum /= totalWeight;
     }
 
-    // === Composite with Screen blend ===
-    float blendStrength = trailPhase * 1.6;
-    vec3 screenBlend = 1.0 - (1.0 - boostedOriginal) * (1.0 - trailAccum * blendStrength);
+    // Strong additive blend for dramatic light trails
+    vec3 result = original.rgb;
 
-    vec3 result = screenBlend;
-    // Additive glow on trails
-    result += trailAccum * trailPhase * trailPhase * 0.4;
+    // Screen blend for luminous glow
+    float blendStrength = u_intensity * 1.8; // Stronger blend
+    vec3 screenBlend = 1.0 - (1.0 - result) * (1.0 - trailAccum * blendStrength);
+    result = mix(result, screenBlend, u_intensity);
+
+    // Strong additive component for vivid trails
+    result += trailAccum * u_intensity * 0.65;
 
     gl_FragColor = vec4(clamp(result, 0.0, 1.0), original.a);
   }

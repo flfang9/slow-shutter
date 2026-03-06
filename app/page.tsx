@@ -156,12 +156,12 @@ export default function Home() {
     }
   }, [selectedEffect, intensity]);
 
-  const processPreviewImmediate = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
+  const processPreviewImmediate = useCallback(async (effectOverride?: EffectType, intensityOverride?: number, swirlCenterOverride?: { x: number; y: number }) => {
     if (!previewImage || !previewProcessorRef.current) return;
     // Skip if already processing, but don't block forever
     if (isPreviewingRef.current) {
       // Schedule a retry
-      requestAnimationFrame(() => processPreviewImmediate(effectOverride, intensityOverride));
+      requestAnimationFrame(() => processPreviewImmediate(effectOverride, intensityOverride, swirlCenterOverride));
       return;
     }
     isPreviewingRef.current = true;
@@ -170,7 +170,7 @@ export default function Home() {
         previewImage,
         effectOverride ?? effectRef.current,
         intensityOverride ?? intensityRef.current,
-        { swirlCenter }
+        { swirlCenter: swirlCenterOverride ?? swirlCenter }
       );
       setProcessedCanvas(result);
     } catch (err) {
@@ -189,7 +189,7 @@ export default function Home() {
     });
   }, [processPreviewImmediate]);
 
-  const processFullQuality = useCallback(async (effectOverride?: EffectType, intensityOverride?: number) => {
+  const processFullQuality = useCallback(async (effectOverride?: EffectType, intensityOverride?: number, swirlCenterOverride?: { x: number; y: number }) => {
     if (!uploadedImage || !processorRef.current || isProcessing) return;
     setIsProcessing(true);
     try {
@@ -197,7 +197,7 @@ export default function Home() {
         uploadedImage,
         effectOverride ?? effectRef.current,
         intensityOverride ?? intensityRef.current,
-        { swirlCenter }
+        { swirlCenter: swirlCenterOverride ?? swirlCenter }
       );
       setProcessedCanvas(result);
     } catch (err) {
@@ -335,13 +335,12 @@ export default function Home() {
       const clampedY = Math.max(0, Math.min(1, y));
 
       // Only invert Y to match texture coordinate space (screen Y is inverted from texture Y)
-      setSwirlCenter({ x: clampedX, y: 1.0 - clampedY });
+      const newSwirlCenter = { x: clampedX, y: 1.0 - clampedY };
+      setSwirlCenter(newSwirlCenter);
 
-      // Re-process with new center
-      setTimeout(() => {
-        processPreviewImmediate(selectedEffect, intensity);
-        processFullQuality(selectedEffect, intensity);
-      }, 50);
+      // Re-process immediately with new center for instant feedback
+      processPreviewImmediate(selectedEffect, intensity, newSwirlCenter);
+      processFullQuality(selectedEffect, intensity, newSwirlCenter);
     } else {
       // For other effects, toggle before/after
       setShowingBefore(!showingBefore);

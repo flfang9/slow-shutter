@@ -18,11 +18,14 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
     };
   }
 
-  // Check file size (max 50MB)
-  if (file.size > 50 * 1024 * 1024) {
+  // Check file size - RAW files can be larger since we only extract preview
+  const maxSize = isRaw ? 150 * 1024 * 1024 : 50 * 1024 * 1024; // 150MB for RAW, 50MB for others
+  if (file.size > maxSize) {
     return {
       valid: false,
-      error: 'File size too large. Please upload an image under 50MB.',
+      error: isRaw
+        ? 'RAW file too large. Please upload a file under 150MB.'
+        : 'File size too large. Please upload an image under 50MB.',
     };
   }
 
