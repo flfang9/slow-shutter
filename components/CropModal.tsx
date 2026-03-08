@@ -20,26 +20,28 @@ const ASPECT_RATIOS = [
 
 export function CropModal({ image, onClose, onApply }: CropModalProps) {
   const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[0]); // Default to Original
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const cropFrameRef = useRef<HTMLDivElement>(null);
 
-  // Use refs for all interactive values to avoid re-renders during interaction
-  const zoomRef = useRef(1);
-  const rotationRef = useRef(0);
+  // Refs for smooth dragging without state updates
   const positionRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
-
-  // State only for display values (updated on interaction end)
-  const [displayZoom, setDisplayZoom] = useState(100);
-  const [displayRotation, setDisplayRotation] = useState(0);
 
   // Memoize the data URL
   const imageDataUrl = useMemo(() => image.toDataURL('image/jpeg', 0.92), [image]);
 
   // Calculate the actual original aspect ratio
-  const originalRatio = useMemo(() => image.width / image.height, [image.width, image.height]);
+  const originalRatio = useMemo(() => {
+    const ratio = image.width / image.height;
+    console.log('Original image ratio:', ratio, 'from', image.width, 'x', image.height);
+    return ratio;
+  }, [image.width, image.height]);
 
   // Get effective ratio
   const effectiveRatio = useMemo(() => {
@@ -49,23 +51,26 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
     return selectedRatio.ratio;
   }, [selectedRatio.ratio, originalRatio]);
 
-  // Reset position when ratio changes
+  // Reset everything when ratio changes
   useEffect(() => {
+    setPosition({ x: 0, y: 0 });
     positionRef.current = { x: 0, y: 0 };
-    zoomRef.current = 1;
-    rotationRef.current = 0;
-    setDisplayZoom(100);
-    setDisplayRotation(0);
-    updateImageTransform();
+    setZoom(1);
+    setRotation(0);
   }, [selectedRatio]);
 
-  // Direct DOM update for smooth 60fps interactions
-  const updateImageTransform = useCallback(() => {
+  // Direct DOM update for smooth 60fps dragging
+  const updateImagePosition = useCallback(() => {
     if (imageRef.current) {
       const { x, y } = positionRef.current;
-      imageRef.current.style.transform = `translate(${x}px, ${y}px) scale(${zoomRef.current}) rotate(${rotationRef.current}deg)`;
+      imageRef.current.style.transform = `translate(${x}px, ${y}px) scale(${zoom}) rotate(${rotation}deg)`;
     }
-  }, []);
+  }, [zoom, rotation]);
+
+  // Sync position ref with state
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
 
   // Pointer handlers for dragging
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -88,31 +93,17 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
       y: e.clientY - dragStartRef.current.y,
     };
 
-    // Immediate DOM update - no RAF needed for pointer events
-    updateImageTransform();
-  }, [updateImageTransform]);
+    // Direct DOM update for smooth dragging
+    updateImagePosition();
+  }, [updateImagePosition]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    // Sync state with final position
+    setPosition({ ...positionRef.current });
   }, []);
-
-  // Zoom slider with direct DOM updates
-  const handleZoomInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    zoomRef.current = value;
-    setDisplayZoom(Math.round(value * 100));
-    updateImageTransform();
-  }, [updateImageTransform]);
-
-  // Rotation slider with direct DOM updates
-  const handleRotationInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    rotationRef.current = value;
-    setDisplayRotation(value);
-    updateImageTransform();
-  }, [updateImageTransform]);
 
   const handleApply = useCallback(() => {
     if (!containerRef.current || !cropFrameRef.current || !imageRef.current) return;
@@ -150,11 +141,6 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
 
     const ctx = croppedCanvas.getContext('2d');
     if (!ctx) return;
-
-    // Calculate the visible portion of the image that falls within the crop frame
-    const zoom = zoomRef.current;
-    const rotation = rotationRef.current;
-    const pos = positionRef.current;
 
     // Image's displayed size (before zoom)
     const displayedWidth = imageRect.width / zoom;
@@ -213,28 +199,38 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
     }
 
     onApply(croppedCanvas);
-  }, [image, effectiveRatio, selectedRatio.ratio, onApply]);
+  }, [image, effectiveRatio, selectedRatio.ratio, zoom, rotation, onApply]);
 
-  // Calculate crop frame dimensions that fit within the container
-  const getFrameStyle = useCallback(() => {
-    // Use CSS that properly constrains the frame
-    const isLandscape = effectiveRatio >= 1;
+  // Calculate crop frame dimensions using container-relative sizing
+  const [frameSize, setFrameSize] = useState({ width: 300, height: 300 });
 
-    if (isLandscape) {
-      return {
-        width: 'min(85vw, 85%)',
-        height: `min(calc(85vw / ${effectiveRatio}), calc(85% / ${effectiveRatio}), 70vh)`,
-        maxWidth: '90%',
-        maxHeight: '75vh',
-      };
-    } else {
-      return {
-        height: 'min(70vh, 75%)',
-        width: `min(calc(70vh * ${effectiveRatio}), calc(75% * ${effectiveRatio}), 85vw)`,
-        maxWidth: '90%',
-        maxHeight: '75vh',
-      };
-    }
+  useEffect(() => {
+    const updateFrameSize = () => {
+      if (!containerRef.current) return;
+
+      const container = containerRef.current;
+      const containerWidth = container.clientWidth * 0.85;
+      const containerHeight = container.clientHeight * 0.75;
+
+      let frameWidth: number;
+      let frameHeight: number;
+
+      if (effectiveRatio >= 1) {
+        // Landscape or square: constrain by width first
+        frameWidth = Math.min(containerWidth, containerHeight * effectiveRatio);
+        frameHeight = frameWidth / effectiveRatio;
+      } else {
+        // Portrait: constrain by height first
+        frameHeight = Math.min(containerHeight, containerWidth / effectiveRatio);
+        frameWidth = frameHeight * effectiveRatio;
+      }
+
+      setFrameSize({ width: frameWidth, height: frameHeight });
+    };
+
+    updateFrameSize();
+    window.addEventListener('resize', updateFrameSize);
+    return () => window.removeEventListener('resize', updateFrameSize);
   }, [effectiveRatio]);
 
   return (
@@ -280,7 +276,7 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
             className="select-none will-change-transform pointer-events-none"
             draggable={false}
             style={{
-              transform: 'translate(0px, 0px) scale(1) rotate(0deg)',
+              transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
               transformOrigin: 'center',
               maxWidth: 'none',
               maxHeight: 'none',
@@ -295,7 +291,10 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
           <div
             ref={cropFrameRef}
             className="crop-frame relative border-2 border-white"
-            style={getFrameStyle()}
+            style={{
+              width: frameSize.width,
+              height: frameSize.height,
+            }}
           >
             {/* Corner Brackets */}
             <div className="absolute -top-1 -left-1 w-6 h-6 border-l-4 border-t-4 border-white" />
@@ -367,15 +366,15 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
               <ZoomIn className="w-3.5 h-3.5" />
               <span>Zoom</span>
             </div>
-            <span className="tabular-nums font-medium">{displayZoom}%</span>
+            <span className="tabular-nums font-medium">{Math.round(zoom * 100)}%</span>
           </div>
           <input
             type="range"
             min="0.5"
             max="3"
             step="0.02"
-            defaultValue="1"
-            onChange={handleZoomInput}
+            value={zoom}
+            onChange={(e) => setZoom(parseFloat(e.target.value))}
             className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer
                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
                        [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white
@@ -395,15 +394,15 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Rotate</span>
             </div>
-            <span className="tabular-nums font-medium">{displayRotation}°</span>
+            <span className="tabular-nums font-medium">{rotation}°</span>
           </div>
           <input
             type="range"
             min="-45"
             max="45"
             step="1"
-            defaultValue="0"
-            onChange={handleRotationInput}
+            value={rotation}
+            onChange={(e) => setRotation(parseInt(e.target.value))}
             className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer
                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
                        [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white
