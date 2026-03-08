@@ -61,10 +61,10 @@ export function BeforeAfterSlider({ beforeImage, afterImage, className = '' }: B
       {/* Label */}
       <div className="flex justify-between mb-3 px-1">
         <span className="text-xs font-medium uppercase tracking-wider text-white/40">
-          Before
+          With Effect
         </span>
         <span className="text-xs font-medium uppercase tracking-wider text-white/40">
-          After
+          Original
         </span>
       </div>
 
@@ -121,7 +121,7 @@ export function BeforeAfterSlider({ beforeImage, afterImage, className = '' }: B
         {!isDragging && sliderPosition === 50 && (
           <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none animate-pulse">
             <span className="text-xs text-white/60 font-medium uppercase tracking-wider px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm">
-              ← Drag to compare →
+              Drag to see original →
             </span>
           </div>
         )}

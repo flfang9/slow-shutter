@@ -480,18 +480,48 @@ export default function Home() {
       {/* Desktop Layout - ZERO SHIFT */}
       <div className="hidden md:flex h-screen overflow-hidden max-h-screen">
         {/* Image Container - LEFT 70% */}
-        <div className="w-[70%] h-screen overflow-hidden flex items-center justify-center bg-[#050505] relative">
-          {/* Grid Background (Empty State) */}
-          {!uploadedImage && <GridBackground />}
+        <div className="w-[70%] h-screen overflow-hidden flex items-center justify-center bg-[#050505] relative perspective-[1000px]">
+          {/* 3D Rotating Card Carousel */}
+          {!uploadedImage && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative w-[800px] h-[500px] animate-carousel-spin" style={{ transformStyle: 'preserve-3d' }}>
+                {[
+                  '/demo-images/tokyo-after.jpg',
+                  '/demo-images/carousel-arch.jpg',
+                  '/demo-images/carousel-portrait.jpg',
+                  '/demo-images/carousel-tokyo-street.jpg',
+                  '/demo-images/carousel-bulls.jpg',
+                  '/demo-images/carousel-reflection.jpg',
+                  '/demo-images/carousel-tokyo-night.jpg',
+                  '/demo-images/carousel-lantern-swirl.jpg',
+                  '/demo-images/carousel-concert.jpg',
+                  '/demo-images/carousel-times-square.jpg',
+                ].map((src, i) => {
+                  const angle = (i * 360) / 10;
+                  return (
+                    <div
+                      key={src}
+                      className="absolute left-1/2 top-1/2 w-72 h-96 -ml-36 -mt-48 rounded-2xl overflow-hidden shadow-2xl"
+                      style={{
+                        transform: `rotateY(${angle}deg) translateZ(420px)`,
+                        backfaceVisibility: 'hidden',
+                      }}
+                    >
+                      <img
+                        src={src}
+                        alt=""
+                        className="w-full h-full object-cover opacity-50"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {!uploadedImage && (
-            <div className="max-w-lg w-full px-8 relative z-10 space-y-8">
+            <div className="max-w-md w-full px-8 relative z-10">
               <DropZone onFileSelect={handleFileSelect} />
-
-              {/* Gallery Carousel */}
-              <div className="w-full">
-                <GalleryCarousel />
-              </div>
             </div>
           )}
           {uploadedImage && (
@@ -654,6 +684,17 @@ export default function Home() {
                 </button>
               </div>
 
+              {/* Crop Button */}
+              <div className="pt-2">
+                <button
+                  onClick={() => setShowCropModal(true)}
+                  className="w-full px-4 py-3 text-sm font-medium rounded-lg border transition-all flex items-center justify-center gap-2 bg-transparent text-white/70 border-white/20 hover:border-white/40"
+                >
+                  <Crop className="w-4 h-4" />
+                  Crop
+                </button>
+              </div>
+
               <div className="pt-6 border-t border-white/10">
                 <ExportControls canvas={processedCanvas} originalImage={uploadedImage} onReset={handleReset} />
               </div>
@@ -692,8 +733,8 @@ export default function Home() {
               {/* Before/After Slider */}
               <div className="w-full max-w-sm mb-8">
                 <BeforeAfterSlider
-                  beforeImage="/demo-images/tokyo-before.jpg"
-                  afterImage="/demo-images/tokyo-after.jpg"
+                  beforeImage="/demo-images/osaka-before.jpg"
+                  afterImage="/demo-images/osaka-after.jpg"
                 />
               </div>
 

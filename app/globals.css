@@ -163,3 +163,22 @@ body::before {
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* 3D Carousel spin animation */
+@keyframes carousel-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.animate-carousel-spin {
+  animation: carousel-spin 25s linear infinite;
+}
+
+/* Perspective for 3D effect */
+.perspective-\[1000px\] {
+  perspective: 1000px;
+}
