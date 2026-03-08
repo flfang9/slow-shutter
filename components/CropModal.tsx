@@ -37,11 +37,7 @@ export function CropModal({ image, onClose, onApply }: CropModalProps) {
   const imageDataUrl = useMemo(() => image.toDataURL('image/jpeg', 0.92), [image]);
 
   // Calculate the actual original aspect ratio
-  const originalRatio = useMemo(() => {
-    const ratio = image.width / image.height;
-    console.log('Original image ratio:', ratio, 'from', image.width, 'x', image.height);
-    return ratio;
-  }, [image.width, image.height]);
+  const originalRatio = useMemo(() => image.width / image.height, [image.width, image.height]);
 
   // Get effective ratio
   const effectiveRatio = useMemo(() => {
