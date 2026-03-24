@@ -612,6 +612,9 @@ export default function Home() {
                 <div>→ Fisheye Distortion</div>
               </div>
 
+              {/* Blurrr iOS Waitlist */}
+              <WaitlistForm />
+
               {/* Made by footer */}
               <div className="mt-12 pt-6 border-t border-white/10">
                 <div className="flex items-center gap-4">
@@ -640,9 +643,6 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
-              {/* Blurrr iOS Waitlist */}
-              <WaitlistForm />
             </div>
           )}
 
