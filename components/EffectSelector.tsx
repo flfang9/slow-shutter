@@ -40,6 +40,12 @@ const EFFECTS: Effect[] = [
     description: 'Cinematic color grade',
     preview: '/effect-previews/film-grain.jpg',
   },
+  {
+    id: 'fisheye',
+    name: 'Fisheye',
+    description: 'Barrel lens distortion',
+    preview: '/effect-previews/fisheye.jpg',
+  },
 ];
 
 interface EffectSelectorProps {

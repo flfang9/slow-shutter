@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Crop } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Crop, Circle } from 'lucide-react';
 import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
@@ -13,6 +13,7 @@ import { GridBackground } from '@/components/GridBackground';
 import { CropModal } from '@/components/CropModal';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { GalleryCarousel } from '@/components/GalleryCarousel';
+import { WaitlistForm } from '@/components/WaitlistForm';
 import {
   validateImageFile,
   loadImage,
@@ -608,6 +609,7 @@ export default function Home() {
                 <div>→ Cinematic Swirl</div>
                 <div>→ Soft Light Glow</div>
                 <div>→ Cinematic Film</div>
+                <div>→ Fisheye Distortion</div>
               </div>
 
               {/* Made by footer */}
@@ -638,6 +640,9 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Blurrr iOS Waitlist */}
+              <WaitlistForm />
             </div>
           )}
 
@@ -768,6 +773,11 @@ export default function Home() {
                     </svg>
                   </a>
                 </div>
+              </div>
+
+              {/* Blurrr iOS Waitlist - mobile */}
+              <div className="w-full max-w-sm">
+                <WaitlistForm />
               </div>
             </div>
           </div>
@@ -907,6 +917,7 @@ export default function Home() {
                     { id: 'cinematic-swirl', icon: RotateCw, label: 'Swirl' },
                     { id: 'soft-light', icon: Sparkles, label: 'Glow' },
                     { id: 'film-grain', icon: Film, label: 'Film' },
+                    { id: 'fisheye', icon: Circle, label: 'Fisheye' },
                   ].map((effect) => {
                     const Icon = effect.icon;
                     return (

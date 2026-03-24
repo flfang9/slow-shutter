@@ -10,6 +10,7 @@ import {
   softLightShader,
   filmicGrainShader,
   filmGrainShader,
+  fisheyeShader,
   vibranceShader,
   bloomShader,
   contrastCurveShader,
@@ -99,6 +100,7 @@ export class EffectProcessor {
       'cinematic-swirl': cinematicSwirlShader,
       'soft-light': softLightShader,
       'film-grain': filmicGrainShader,
+      'fisheye': fisheyeShader,
       'post-film-grain': filmGrainShader,
       'vintage-halation': vintageHalationShader,
       'vintage-color': vintageColorGradeShader,
@@ -257,17 +259,13 @@ export class EffectProcessor {
     if (effectProgram) {
       const oldTexture = currentTexture;
 
-      // Build uniforms
+      // Build uniforms - all effects now use u_swirlCenter
+      const center = options?.swirlCenter || { x: 0.5, y: 0.5 };
       const uniforms: Record<string, any> = {
         u_intensity: normalizedIntensity,
         u_resolution: resolution,
+        u_swirlCenter: [center.x, center.y],
       };
-
-      // Swirl center (from user tap or default)
-      if (effect === 'cinematic-swirl') {
-        const center = options?.swirlCenter || { x: 0.5, y: 0.45 };
-        uniforms.u_swirlCenter = [center.x, center.y];
-      }
 
       currentTexture = this.renderPass(effectProgram, currentTexture, uniforms);
       texturesToCleanup.push(oldTexture);
