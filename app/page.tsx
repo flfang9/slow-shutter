@@ -587,7 +587,7 @@ export default function Home() {
         <div className="w-[30%] h-screen bg-[#080808] border-l border-white/10 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Blurrr" className="w-8 h-8 rounded-lg" />
+              <img src="/logo.jpg" alt="Blurrr" className="w-8 h-8 rounded-lg" />
               <h1 className="text-sm font-light tracking-[0.2em] text-white/80 uppercase">
                 Blurrr
               </h1>
@@ -618,7 +618,7 @@ export default function Home() {
               {/* Blurrr iOS Waitlist - Prominent Card */}
               <div className="mt-8 p-6 bg-gradient-to-br from-white/[0.08] to-white/[0.02] rounded-2xl border border-white/10">
                 <div className="flex items-center gap-3 mb-4">
-                  <img src="/logo.png" alt="Blurrr" className="w-10 h-10 rounded-xl" />
+                  <img src="/logo.jpg" alt="Blurrr" className="w-10 h-10 rounded-xl" />
                   <div>
                     <h3 className="text-base font-semibold text-white">Blurrr for iOS</h3>
                     <p className="text-xs text-white/50">Coming soon to the App Store</p>
@@ -746,7 +746,7 @@ export default function Home() {
               {/* Blurrr iOS Waitlist - mobile (prominent card) */}
               <div className="w-full max-w-sm mb-8 p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] rounded-2xl border border-white/10">
                 <div className="flex items-center gap-3 mb-4">
-                  <img src="/logo.png" alt="Blurrr" className="w-12 h-12 rounded-xl" />
+                  <img src="/logo.jpg" alt="Blurrr" className="w-12 h-12 rounded-xl" />
                   <div>
                     <h3 className="text-lg font-semibold text-white">Blurrr for iOS</h3>
                     <p className="text-xs text-white/50">Coming soon to the App Store</p>
