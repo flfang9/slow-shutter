@@ -722,8 +722,13 @@ export default function Home() {
           <div className="fixed inset-0 z-10 overflow-y-auto overflow-x-hidden pointer-events-none">
             <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-16 pb-24 px-4 pointer-events-auto">
               {/* Upload Box */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <DropZone onFileSelect={handleFileSelect} />
+              </div>
+
+              {/* Blurrr iOS Waitlist - mobile (prominent placement) */}
+              <div className="w-full max-w-sm mb-8">
+                <WaitlistForm />
               </div>
 
               {/* Divider */}
@@ -775,10 +780,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Blurrr iOS Waitlist - mobile */}
-              <div className="w-full max-w-sm">
-                <WaitlistForm />
-              </div>
             </div>
           </div>
         )}
