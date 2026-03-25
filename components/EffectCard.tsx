@@ -1,7 +1,7 @@
 'use client';
 
 import { Effect } from '@/types';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Circle } from 'lucide-react';
 
 const EFFECT_ICONS = {
   'lateral-motion': MoveRight,
@@ -11,6 +11,7 @@ const EFFECT_ICONS = {
   'soft-light': Sparkles,
   'light-trails': Zap,
   'film-grain': Film,
+  'fisheye': Circle,
 };
 
 interface EffectCardProps {
