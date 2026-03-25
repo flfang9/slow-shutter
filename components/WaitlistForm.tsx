@@ -4,12 +4,26 @@ import { useState } from 'react';
 import { Smartphone, Loader2, Check } from 'lucide-react';
 
 export function WaitlistForm() {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!firstName.trim()) {
+      setStatus('error');
+      setErrorMessage('First name is required');
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setStatus('error');
+      setErrorMessage('Last name is required');
+      return;
+    }
 
     if (!email || !email.includes('@')) {
       setStatus('error');
@@ -24,11 +38,13 @@ export function WaitlistForm() {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() }),
       });
 
       if (res.ok) {
         setStatus('success');
+        setFirstName('');
+        setLastName('');
         setEmail('');
       } else {
         const data = await res.json();
@@ -69,6 +85,25 @@ export function WaitlistForm() {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="First name"
+            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+            disabled={status === 'loading'}
+          />
+          <input
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Last name"
+            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+            disabled={status === 'loading'}
+          />
+        </div>
+
         <input
           type="email"
           value={email}
