@@ -759,7 +759,7 @@ export default function Home() {
               <div className="flex items-center gap-3 mb-6 w-full max-w-sm">
                 <div className="flex-1 h-px bg-white/10" />
                 <span className="text-xs text-white/30 font-medium uppercase tracking-wider">
-                  See what's possible
+                  See what&apos;s possible
                 </span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
