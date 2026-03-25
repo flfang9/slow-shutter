@@ -2,13 +2,13 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Slow Shutter',
-    short_name: 'Slow Shutter',
-    description: 'Apply cinematic slow-shutter blur effects to your photos',
+    name: 'Blurrr',
+    short_name: 'Blurrr',
+    description: 'Transform your photos with cinematic motion blur effects',
     start_url: '/',
     display: 'standalone',
-    background_color: '#0A0A0A',
-    theme_color: '#C8FF00',
+    background_color: '#000000',
+    theme_color: '#000000',
     icons: [
       {
         src: '/icon-192.png',

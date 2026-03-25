@@ -587,7 +587,7 @@ export default function Home() {
         <div className="w-[30%] h-screen bg-[#080808] border-l border-white/10 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-white/10">
             <h1 className="text-sm font-light tracking-[0.2em] text-white/80 uppercase">
-              Slow Shutter
+              Blurrr
             </h1>
           </div>
 
@@ -595,21 +595,21 @@ export default function Home() {
           {!uploadedImage && (
             <div className="flex-1 p-8 flex flex-col justify-center">
               <h2 className="text-2xl font-light text-white/90 mb-4 leading-tight">
-                A Studio for Motion
+                Motion in Every Frame
               </h2>
               <p className="text-sm text-white/60 leading-relaxed mb-6">
-                Apply cinematic slow shutter effects to your photographs.
-                Transform static moments into dynamic visual narratives with
-                professional motion blur techniques.
+                Transform static photos into dynamic visual stories.
+                Professional motion blur and cinematic effects that bring
+                your images to life.
               </p>
               <div className="space-y-3 text-xs text-white/40 font-mono">
-                <div>→ Lateral Motion Blur</div>
-                <div>→ Radial Zoom Pull</div>
+                <div>→ Motion Blur</div>
+                <div>→ Zoom Pull</div>
                 <div>→ Handheld Drift</div>
                 <div>→ Cinematic Swirl</div>
-                <div>→ Soft Light Glow</div>
-                <div>→ Cinematic Film</div>
-                <div>→ Fisheye Distortion</div>
+                <div>→ Soft Glow</div>
+                <div>→ Film Grade</div>
+                <div>→ Fisheye</div>
               </div>
 
               {/* Blurrr iOS Waitlist */}
@@ -1108,14 +1108,14 @@ export default function Home() {
                           }, 'image/jpeg', 0.95);
                         });
 
-                        const file = new File([blob], `slow-shutter-${Date.now()}.jpg`, {
+                        const file = new File([blob], `blurrr-${Date.now()}.jpg`, {
                           type: 'image/jpeg',
                         });
 
                         if (navigator.canShare({ files: [file] })) {
                           await navigator.share({
                             files: [file],
-                            title: 'Slow Shutter',
+                            title: 'Blurrr',
                           });
                         }
                       } catch (error: any) {

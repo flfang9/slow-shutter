@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Slow Shutter - Cinematic Blur Effects",
-  description: "Apply professional slow-shutter blur effects to your photos. Lateral motion, zoom pull, and handheld drift effects with full post-processing.",
+  title: "Blurrr - Cinematic Motion Effects",
+  description: "Transform your photos with professional motion blur effects. Lateral motion, zoom pull, cinematic swirl, and film grain effects.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: '/favicon.ico',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Slow Shutter",
+    title: "Blurrr",
   },
 };
 
