@@ -20,13 +20,7 @@ import {
   scaleImageIfNeeded,
 } from '@/lib/image-utils';
 import { EffectProcessor } from '@/lib/webgl/processor';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+// Dialog removed - using simple div instead
 
 export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
@@ -1184,15 +1178,21 @@ export default function Home() {
         />
       )}
 
-      {/* Error Dialog */}
-      <Dialog open={!!error} onOpenChange={() => setError(null)}>
-        <DialogContent className="bg-[#080808] border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-white">Error</DialogTitle>
-            <DialogDescription className="text-white/60">{error}</DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
+      {/* Error Dialog - simplified */}
+      {error && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setError(null)}>
+          <div className="bg-[#080808] border border-white/10 rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-white font-semibold mb-2">Error</h3>
+            <p className="text-white/60 text-sm">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="mt-4 px-4 py-2 bg-white text-black rounded-lg text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
