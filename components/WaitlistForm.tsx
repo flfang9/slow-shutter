@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Smartphone, Loader2, Check } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 
 export function WaitlistForm() {
   const [firstName, setFirstName] = useState('');
@@ -59,7 +59,7 @@ export function WaitlistForm() {
 
   if (status === 'success') {
     return (
-      <div className="mt-8 pt-6 border-t border-white/10">
+      <div className="py-2">
         <div className="flex items-center gap-3 text-emerald-400">
           <Check className="w-5 h-5" />
           <span className="text-sm font-medium">You&apos;re on the list!</span>
@@ -72,16 +72,9 @@ export function WaitlistForm() {
   }
 
   return (
-    <div className="mt-8 pt-6 border-t border-white/10">
-      <div className="flex items-center gap-2 mb-3">
-        <Smartphone className="w-4 h-4 text-white/50" />
-        <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
-          Coming to iOS
-        </span>
-      </div>
-
+    <div>
       <p className="text-sm text-white/60 mb-4">
-        Get notified when Blurrr launches on the App Store.
+        Get notified when we launch.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3">
