@@ -673,7 +673,7 @@ export default function Home() {
                   <span className="text-xs text-white/30">Made by Freddy Fang</span>
                   <div className="flex gap-3">
                     <a
-                      href="https://www.instagram.com/irlfreddyfang/"
+                      href="https://www.instagram.com/freddymightdoit/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-white/30 hover:text-white/60 transition-colors"
@@ -862,7 +862,7 @@ export default function Home() {
                   <span className="text-xs text-white/25">Made by Freddy Fang</span>
                   <div className="flex gap-3">
                     <a
-                      href="https://www.instagram.com/irlfreddyfang/"
+                      href="https://www.instagram.com/freddymightdoit/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-white/25 hover:text-white/50 transition-colors"
