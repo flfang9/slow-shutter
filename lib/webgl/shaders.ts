@@ -10,7 +10,7 @@ export const vertexShaderSource = `
   }
 `;
 
-// Lateral Motion - tighter handheld smear with subtle wobble
+// Lateral Motion - clean horizontal directional blur (synced from mobile 2026-04-05)
 export const lateralMotionShader = `
   precision highp float;
   uniform sampler2D u_image;
@@ -19,68 +19,64 @@ export const lateralMotionShader = `
   uniform vec2 u_swirlCenter;
   varying vec2 v_texCoord;
 
-  // Comet curve - brighter at edges, dimmer in middle
-  float cometBezier(float t) {
-    float t2 = t * 2.0 - 1.0;
-    float u = t2 * t2;
-    float cubic = u * u * (3.0 - 2.0 * u);
-    return 1.0 - cubic * 0.55;
-  }
-
   void main() {
-    if (u_intensity < 0.00001) {
-      gl_FragColor = texture2D(u_image, v_texCoord);
+    vec4 original = texture2D(u_image, v_texCoord);
+
+    if (u_intensity < 0.001) {
+      gl_FragColor = original;
       return;
     }
 
-    vec4 original = texture2D(u_image, v_texCoord);
-    vec4 color = vec4(0.0);
-    float total = 0.0;
+    // Cleaner, reduced range
+    float range = min(u_intensity * 0.022, 0.02);
 
-    // Motion should read immediately, even at lower slider values.
-    float intensityCurve = 0.44 + pow(u_intensity, 0.9) * 0.56;
-    float offset = mix(0.042, 0.10, intensityCurve);
+    // Strong original weight - keeps subject recognizable
+    vec4 color = original * 2.0;
+    float totalWeight = 2.0;
 
-    // Fewer layers than drift so the blur feels tighter and more handheld.
-    for (int g = 0; g < 6; g++) {
-      float ghostIndex = float(g);
-      float ghostThreshold = mix(3.0, 5.0, intensityCurve);
-      if (ghostIndex >= ghostThreshold) break;
+    // Sample BOTH directions (symmetric keeps center sharp)
+    for (int i = 1; i <= 10; i++) {
+      float t = float(i) / 10.0;
 
-      float ghostCenter = (ghostThreshold - 1.0) * 0.5;
-      float ghostDistance = abs(ghostIndex - ghostCenter);
-      float ghostOffset = (ghostIndex - ghostCenter) * offset * 0.36;
-      float ghostOpacity = exp(-ghostDistance * 1.1);
+      // Subtle wobble - just a hint of organic movement
+      float wobble = sin(float(i) * 1.7) * range * 0.12;
 
-      // Dynamic samples (10-32)
-      for (int i = 0; i < 32; i++) {
-        float sampleIndex = float(i);
-        float maxSamples = mix(18.0, 32.0, intensityCurve);
-        if (sampleIndex >= maxSamples) break;
+      // Mostly horizontal with tiny vertical drift
+      vec2 leftPos = v_texCoord + vec2(-t * range, wobble);
+      vec2 rightPos = v_texCoord + vec2(t * range, -wobble);
 
-        float t = sampleIndex / (maxSamples - 1.0);
-        float cometCurve = cometBezier(t);
+      vec4 leftSample = texture2D(u_image, clamp(leftPos, 0.0, 1.0));
+      vec4 rightSample = texture2D(u_image, clamp(rightPos, 0.0, 1.0));
 
-        float x = (t - 0.5) * offset * 1.35 + ghostOffset;
-        float wobble = sin(v_texCoord.y * 18.0 + sampleIndex * 0.7 + ghostIndex * 1.3) * 0.5;
-        vec2 sampleCoord = v_texCoord + vec2(x, wobble * offset * 0.10);
-        vec4 s = texture2D(u_image, sampleCoord);
+      // Luminance boost for light streaks
+      float leftLum = dot(leftSample.rgb, vec3(0.299, 0.587, 0.114));
+      float rightLum = dot(rightSample.rgb, vec3(0.299, 0.587, 0.114));
+      float leftBoost = 0.5 + leftLum * 0.8;
+      float rightBoost = 0.5 + rightLum * 0.8;
 
-        float centerBias = max(0.22, 1.0 - abs(t - 0.5) * 1.35);
-        float weight = ghostOpacity * centerBias * mix(0.9, 1.0, cometCurve);
+      // Smooth falloff
+      float falloff = 1.0 - t * 0.4;
+      float leftWeight = falloff * leftBoost * u_intensity;
+      float rightWeight = falloff * rightBoost * u_intensity;
 
-        color += s * weight;
-        total += weight;
-      }
+      color += leftSample * leftWeight + rightSample * rightWeight;
+      totalWeight += leftWeight + rightWeight;
     }
 
-    vec4 result = color / total;
-    float blend = 0.54 + u_intensity * 0.22;
-    gl_FragColor = mix(original, result, blend);
+    vec3 result = (color / totalWeight).rgb;
+
+    // Contrast restoration - prevents muddy look
+    result = (result - 0.5) * (1.0 + u_intensity * 0.15) + 0.5;
+
+    // Saturation boost to counter washout
+    float gray = dot(result, vec3(0.299, 0.587, 0.114));
+    result = mix(vec3(gray), result, 1.0 + u_intensity * 0.1);
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);
   }
 `;
 
-// Zoom should feel like a radial shutter pull, not just a softened original.
+// Vertical Zoom - dramatic radial zoom blur (synced from mobile 2026-04-05)
 export const verticalZoomShader = `
   precision highp float;
   uniform sampler2D u_image;
@@ -90,52 +86,74 @@ export const verticalZoomShader = `
   varying vec2 v_texCoord;
 
   void main() {
-    if (u_intensity < 0.00001) {
-      gl_FragColor = texture2D(u_image, v_texCoord);
+    vec4 original = texture2D(u_image, v_texCoord);
+
+    if (u_intensity < 0.001) {
+      gl_FragColor = original;
       return;
     }
 
-    vec4 original = texture2D(u_image, v_texCoord);
+    // Center point (tappable via u_swirlCenter)
     vec2 center = u_swirlCenter;
     vec2 direction = v_texCoord - center;
     float distance = length(direction);
 
-    vec4 color = vec4(0.0);
-    float total = 0.0;
+    // Normalize direction for consistent streak behavior
+    vec2 dir = distance > 0.001 ? direction / distance : vec2(0.0);
 
-    float intensityCurve = 0.30 + pow(u_intensity, 0.95) * 0.70;
-    float strength = mix(0.045, 0.16, intensityCurve);
+    // DRAMATIC streak length - quadratic intensity curve
+    float curve = u_intensity * u_intensity;
+    float streakLength = curve * 0.18 * (0.3 + distance * 1.4);
 
-    for (int i = 0; i < 18; i++) {
-      float sampleIndex = float(i);
-      float maxSamples = 18.0;
-      if (sampleIndex >= maxSamples) break;
+    // Center protection zone - keeps center sharp, blur increases outward
+    float centerSharp = smoothstep(0.03, 0.28, distance);
 
-      float t = sampleIndex / (maxSamples - 1.0);
-      float shutterT = t;
-      vec2 rawCoord = v_texCoord - direction * shutterT * strength;
-      vec2 sampleCoord = clamp(rawCoord, vec2(0.0), vec2(1.0));
-      float edgeFade = exp(-length(rawCoord - sampleCoord) * 18.0);
-      if (edgeFade < 0.02) continue;
+    // Start accumulating with original (heavier weight to preserve it)
+    vec4 color = original * 1.5;
+    float totalWeight = 1.5;
 
-      vec4 s = texture2D(u_image, sampleCoord);
+    // 20 samples for smooth dramatic streaks
+    for (int i = 1; i <= 20; i++) {
+      float t = float(i) / 20.0;
 
-      float distanceWeight = smoothstep(0.06, 0.62, distance);
-      float weight = (1.0 - t * 0.42) * mix(0.34, 1.18, distanceWeight) * edgeFade;
+      // Sample OUTWARD from center (zoom explosion effect)
+      vec2 samplePos = v_texCoord + dir * t * streakLength;
+
+      // Bounds check
+      if (samplePos.x < 0.0 || samplePos.x > 1.0 || samplePos.y < 0.0 || samplePos.y > 1.0) {
+        continue;
+      }
+
+      vec4 s = texture2D(u_image, samplePos);
+
+      // Gentler luminance boost - preserves contrast better
+      float lum = dot(s.rgb, vec3(0.299, 0.587, 0.114));
+      float lumBoost = 0.6 + lum * 0.8;
+
+      // Weight: gradual falloff along streak
+      float falloff = 1.0 - t * 0.5;
+      float weight = falloff * lumBoost * centerSharp * u_intensity;
 
       color += s * weight;
-      total += weight;
+      totalWeight += weight;
     }
 
-    vec4 result = total > 0.0 ? color / total : original;
-    float blend = 0.38 + u_intensity * 0.34;
-    gl_FragColor = mix(original, result, blend);
+    vec3 result = (color / totalWeight).rgb;
+
+    // Contrast restoration - subtle S-curve to recover depth
+    result = (result - 0.5) * (1.0 + u_intensity * 0.15) + 0.5;
+
+    // Saturation boost to counter washout
+    float gray = dot(result, vec3(0.299, 0.587, 0.114));
+    result = mix(vec3(gray), result, 1.0 + u_intensity * 0.1);
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);
   }
 `;
 
-// Swirl v1 (original 398f27c) - fixed center, more aggressive, no blending
+// Cinematic Swirl - zoom + rotation hybrid (synced from mobile 2026-04-05)
 export const cinematicSwirlShader = `
-  precision mediump float;
+  precision highp float;
   uniform sampler2D u_image;
   uniform float u_intensity;
   uniform vec2 u_resolution;
@@ -147,20 +165,30 @@ export const cinematicSwirlShader = `
   }
 
   void main() {
-    // Use tappable center (falls back to 0.5, 0.5 if not set)
+    vec4 original = texture2D(u_image, v_texCoord);
+
+    if (u_intensity < 0.001) {
+      gl_FragColor = original;
+      return;
+    }
+
     vec2 center = u_swirlCenter;
     vec2 direction = v_texCoord - center;
-    float distance = length(direction);
+    float dist = length(direction);
 
     vec4 color = vec4(0.0);
     float total = 0.0;
 
+    // Dynamic sample count: 12-35 based on intensity
     int samples = int(mix(12.0, 35.0, u_intensity));
-    float zoomStrength = mix(0.01, 0.12, u_intensity);
-    float rotationStrength = mix(0.0, 0.15, u_intensity);
+
+    // Intensity scaling with slight curve for low-end visibility
+    float curve = u_intensity * (0.5 + u_intensity * 0.5);
+    float zoomStrength = mix(0.02, 0.14, curve);
+    float rotationStrength = mix(0.02, 0.18, curve);
 
     // Subject preservation - keep center sharper
-    float centerFalloff = smoothstep(0.0, 0.3, distance);
+    float centerFalloff = smoothstep(0.0, 0.3, dist);
     zoomStrength *= centerFalloff;
     rotationStrength *= centerFalloff;
 
@@ -187,24 +215,31 @@ export const cinematicSwirlShader = `
       // Combine zoom and rotation
       vec2 sampleCoord = center + rotatedDir + zoomOffset;
 
-      vec4 sample = texture2D(u_image, sampleCoord);
+      vec4 samp = texture2D(u_image, clamp(sampleCoord, 0.0, 1.0));
 
       // Weight samples - outer samples fade for smooth blur
       float weight = 1.0 - t * 0.3;
 
       // Boost bright areas (lights streak more)
-      float luminance = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
+      float luminance = dot(samp.rgb, vec3(0.299, 0.587, 0.114));
       weight *= mix(0.7, 1.3, luminance);
 
-      color += sample * weight;
+      color += samp * weight;
       total += weight;
     }
 
-    gl_FragColor = color / total;
+    vec3 result = (color / total).rgb;
+
+    // Subtle film grain
+    float grain = (random(v_texCoord * 500.0 + u_intensity) - 0.5) * 2.0;
+    float grainStrength = 0.015 + u_intensity * 0.012;
+    result += vec3(grain * grainStrength);
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);
   }
 `;
 
-// Handheld Drift - restore the earlier diagonal slow-shutter trail.
+// Handheld Drift - panning with ghost echoes (synced from mobile 2026-04-05)
 export const handheldDriftShader = `
   precision highp float;
   uniform sampler2D u_image;
@@ -213,50 +248,78 @@ export const handheldDriftShader = `
   uniform vec2 u_swirlCenter;
   varying vec2 v_texCoord;
 
-  float rand(vec2 co) {
-    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
-  }
-
   void main() {
-    if (u_intensity < 0.00001) {
-      gl_FragColor = texture2D(u_image, v_texCoord);
+    vec4 original = texture2D(u_image, v_texCoord);
+
+    if (u_intensity < 0.001) {
+      gl_FragColor = original;
       return;
     }
 
-    vec4 original = texture2D(u_image, v_texCoord);
-    vec4 color = vec4(0.0);
-    float total = 0.0;
+    // Horizontal panning direction (slight angle for organic feel)
+    vec2 blurDir = normalize(vec2(1.0, 0.08));
 
-    float intensity2 = u_intensity * u_intensity;
+    // Blur range - capped for high intensity
+    float range = min(u_intensity * 0.05, 0.045);
 
-    vec2 driftDir = normalize(vec2(1.0, 0.26));
-    vec2 orthoDir = vec2(-driftDir.y, driftDir.x);
-    float strength = mix(0.02, 0.10, intensity2);
-    float swayAmount = strength * mix(0.12, 0.20, intensity2);
+    // Original weight - reduced to let ghosts show through
+    vec4 color = original * 1.8;
+    float totalWeight = 1.8;
 
-    for (int i = 0; i < 18; i++) {
-      float t = float(i) / 17.0;
-      float centered = t - 0.5;
+    // === GHOST ECHOES (slow shutter doubling) ===
+    // Stronger ghosts that show the "camera moved left" effect
+    float ghostRange = u_intensity * 0.055;
 
-      float sway = sin(float(i) * 1.6 + v_texCoord.y * 5.0) * swayAmount;
-      float jitter = (rand(vec2(float(i) * 13.0, dot(v_texCoord, vec2(19.0, 27.0)))) - 0.5) * strength * 0.08;
+    // Ghost 1: Primary echo - this is the main "double" you see
+    vec2 ghost1Pos = v_texCoord + blurDir * ghostRange;
+    vec4 ghost1 = texture2D(u_image, clamp(ghost1Pos, 0.0, 1.0));
+    float ghost1Weight = u_intensity * 0.9;
+    color += ghost1 * ghost1Weight;
+    totalWeight += ghost1Weight;
 
-      vec2 offset = driftDir * centered * strength * 1.4;
-      offset += orthoDir * (sway + jitter);
+    // Ghost 2: Secondary echo (trailing behind original)
+    vec2 ghost2Pos = v_texCoord - blurDir * ghostRange * 0.6;
+    vec4 ghost2 = texture2D(u_image, clamp(ghost2Pos, 0.0, 1.0));
+    float ghost2Weight = u_intensity * 0.5;
+    color += ghost2 * ghost2Weight;
+    totalWeight += ghost2Weight;
 
-      vec4 s = texture2D(u_image, clamp(v_texCoord + offset, vec2(0.0), vec2(1.0)));
+    // === MOTION BLUR (smooth trails connecting ghosts) ===
+    for (int i = 1; i <= 10; i++) {
+      float t = float(i) / 10.0;
 
-      float luminance = dot(s.rgb, vec3(0.299, 0.587, 0.114));
-      float weight = max(0.2, 1.0 - abs(centered) * 1.2);
-      weight *= mix(0.92, 1.1, smoothstep(0.2, 0.9, luminance));
+      // Sample BOTH directions
+      vec2 leftPos = v_texCoord - blurDir * t * range;
+      vec2 rightPos = v_texCoord + blurDir * t * range;
 
-      color += s * weight;
-      total += weight;
+      vec4 leftSample = texture2D(u_image, clamp(leftPos, 0.0, 1.0));
+      vec4 rightSample = texture2D(u_image, clamp(rightPos, 0.0, 1.0));
+
+      // Luminance boost - lights streak more
+      float leftLum = dot(leftSample.rgb, vec3(0.299, 0.587, 0.114));
+      float rightLum = dot(rightSample.rgb, vec3(0.299, 0.587, 0.114));
+      float leftBoost = 0.5 + leftLum * 0.8;
+      float rightBoost = 0.5 + rightLum * 0.8;
+
+      // Falloff
+      float falloff = 1.0 - t * 0.6;
+      float leftWeight = falloff * leftBoost * u_intensity * 0.5;
+      float rightWeight = falloff * rightBoost * u_intensity * 0.5;
+
+      color += leftSample * leftWeight + rightSample * rightWeight;
+      totalWeight += leftWeight + rightWeight;
     }
 
-    vec4 effect = color / total;
-    float blend = 0.45 + u_intensity * 0.25;
-    gl_FragColor = mix(original, effect, blend);
+    vec3 result = (color / totalWeight).rgb;
+
+    // Contrast restoration
+    result = (result - 0.5) * (1.0 + u_intensity * 0.15) + 0.5;
+
+    // Saturation boost to counter washout
+    float gray = dot(result, vec3(0.299, 0.587, 0.114));
+    result = mix(vec3(gray), result, 1.0 + u_intensity * 0.1);
+
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);
   }
 `;
 
@@ -657,7 +720,7 @@ export const filmicGrainShader = `
   }
 `;
 
-// Vortex - aggressive circular spin blur with concentric streaks
+// Vortex - harsh spin blur with concentric streaks (synced from mobile 2026-04-05)
 export const vortexShader = `
   precision highp float;
   uniform sampler2D u_image;
