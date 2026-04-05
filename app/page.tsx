@@ -698,6 +698,7 @@ export default function Home() {
                 <div className="flex gap-4 mt-3">
                   <a href="/privacy" className="text-xs text-white/20 hover:text-white/40 transition-colors">Privacy</a>
                   <a href="/terms" className="text-xs text-white/20 hover:text-white/40 transition-colors">Terms</a>
+                  <a href="/support" className="text-xs text-white/20 hover:text-white/40 transition-colors">Support</a>
                 </div>
               </div>
             </div>
@@ -886,6 +887,7 @@ export default function Home() {
                 <div className="flex gap-4">
                   <a href="/privacy" className="text-xs text-white/20 hover:text-white/40 transition-colors">Privacy</a>
                   <a href="/terms" className="text-xs text-white/20 hover:text-white/40 transition-colors">Terms</a>
+                  <a href="/support" className="text-xs text-white/20 hover:text-white/40 transition-colors">Support</a>
                 </div>
               </div>
 
