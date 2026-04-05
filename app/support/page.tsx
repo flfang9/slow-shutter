@@ -22,7 +22,7 @@ export default function SupportPage() {
           <section>
             <h2 className="text-lg font-semibold mb-4">Contact Us</h2>
             <p className="text-white/50">
-              Have a question, issue, or feedback? Reach out and we&apos;ll get back to you within 24 hours.
+              Have a question, issue, or feedback? Reach out and we&apos;ll get back to you as quick as we can.
             </p>
             <div className="mt-4 p-4 bg-[#080808] rounded-lg border border-white/10">
               <p className="text-sm"><strong className="text-white">Email:</strong> <a href="mailto:ffangcreative@gmail.com" className="text-white hover:underline">ffangcreative@gmail.com</a></p>
