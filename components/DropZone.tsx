@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { Upload } from 'lucide-react';
+import { EmailGateModal, hasWebAccess } from './EmailGateModal';
 
 interface DropZoneProps {
   onFileSelect: (file: File) => void;
@@ -9,6 +10,25 @@ interface DropZoneProps {
 
 export function DropZone({ onFileSelect }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
+  const pendingFileRef = useRef<File | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Check access on mount
+  useEffect(() => {
+    setHasAccess(hasWebAccess());
+  }, []);
+
+  const processFile = useCallback((file: File) => {
+    if (hasWebAccess()) {
+      onFileSelect(file);
+    } else {
+      // Store file and show gate
+      pendingFileRef.current = file;
+      setShowEmailGate(true);
+    }
+  }, [onFileSelect]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -16,10 +36,10 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
       setIsDragging(false);
       const files = e.dataTransfer.files;
       if (files.length > 0) {
-        onFileSelect(files[0]);
+        processFile(files[0]);
       }
     },
-    [onFileSelect]
+    [processFile]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -35,71 +55,104 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (files && files.length > 0) {
-        onFileSelect(files[0]);
+        processFile(files[0]);
+      }
+      // Reset input so same file can be selected again
+      if (inputRef.current) {
+        inputRef.current.value = '';
       }
     },
-    [onFileSelect]
+    [processFile]
   );
 
+  const handleEmailGateSuccess = useCallback(() => {
+    setShowEmailGate(false);
+    setHasAccess(true);
+    // Process the pending file
+    if (pendingFileRef.current) {
+      onFileSelect(pendingFileRef.current);
+      pendingFileRef.current = null;
+    }
+  }, [onFileSelect]);
+
+  const handleEmailGateClose = useCallback(() => {
+    setShowEmailGate(false);
+    pendingFileRef.current = null;
+    // Reset file input
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
+  }, []);
+
   return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      className={`
-        relative rounded-2xl border border-white/10
-        bg-black/30 transition-all duration-300 cursor-pointer
-        w-64 h-64 md:w-auto md:h-auto
-        ${isDragging ? 'bg-black/50 border-white/30' : ''}
-      `}
-      style={{
-        backdropFilter: 'blur(16px) saturate(150%)',
-        WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-      }}
-    >
-      <label className="flex flex-col items-center justify-center h-full md:min-h-[400px] p-8 cursor-pointer">
-        {/* Minimalist Upload Icon */}
-        <Upload className="w-10 h-10 text-white/60 mb-4 md:mb-6" strokeWidth={1.5} />
+    <>
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={`
+          relative rounded-2xl border border-white/10
+          bg-black/30 transition-all duration-300 cursor-pointer
+          w-64 h-64 md:w-auto md:h-auto
+          ${isDragging ? 'bg-black/50 border-white/30' : ''}
+        `}
+        style={{
+          backdropFilter: 'blur(16px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+        }}
+      >
+        <label className="flex flex-col items-center justify-center h-full md:min-h-[400px] p-8 cursor-pointer">
+          {/* Minimalist Upload Icon */}
+          <Upload className="w-10 h-10 text-white/60 mb-4 md:mb-6" strokeWidth={1.5} />
 
-        {/* Instruction Text */}
-        <h2 className="text-sm font-light tracking-wide text-white/60 mb-3 md:mb-4">
-          <span className="md:hidden">Tap to Start</span>
-          <span className="hidden md:inline">Drop Image Here</span>
-        </h2>
+          {/* Instruction Text */}
+          <h2 className="text-sm font-light tracking-wide text-white/60 mb-3 md:mb-4">
+            <span className="md:hidden">Tap to Start</span>
+            <span className="hidden md:inline">Drop Image Here</span>
+          </h2>
 
-        {/* Pills */}
-        <div className="flex gap-2 flex-wrap justify-center">
-          <span className="px-2 py-1 text-[10px] font-medium text-white/40
-                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-            JPG
-          </span>
-          <span className="px-2 py-1 text-[10px] font-medium text-white/40
-                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-            PNG
-          </span>
-          <span className="px-2 py-1 text-[10px] font-medium text-white/40
-                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-            HEIC
-          </span>
-          <span className="px-2 py-1 text-[10px] font-medium text-white/40
-                          bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-            RAW
-          </span>
-        </div>
+          {/* Pills */}
+          <div className="flex gap-2 flex-wrap justify-center">
+            <span className="px-2 py-1 text-[10px] font-medium text-white/40
+                            bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+              JPG
+            </span>
+            <span className="px-2 py-1 text-[10px] font-medium text-white/40
+                            bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+              PNG
+            </span>
+            <span className="px-2 py-1 text-[10px] font-medium text-white/40
+                            bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+              HEIC
+            </span>
+            <span className="px-2 py-1 text-[10px] font-medium text-white/40
+                            bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
+              RAW
+            </span>
+          </div>
 
-        {/* Description - adapts for mobile vs desktop */}
-        <p className="mt-4 text-xs md:text-sm text-white/40 text-center max-w-xs mx-auto">
-          <span className="md:hidden">add cinematic motion blur to make sick ass photos!</span>
-          <span className="hidden md:inline">add cinematic motion blur to make sick ass photos!</span>
-        </p>
+          {/* Description - adapts for mobile vs desktop */}
+          <p className="mt-4 text-xs md:text-sm text-white/40 text-center max-w-xs mx-auto">
+            <span className="md:hidden">add cinematic motion blur to make sick ass photos!</span>
+            <span className="hidden md:inline">add cinematic motion blur to make sick ass photos!</span>
+          </p>
 
-        <input
-          type="file"
-          accept=".jpg,.jpeg,.png,.heic,.heif,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.rw2,.pef,.srw,image/jpeg,image/png,image/heic,image/heif"
-          onChange={handleFileInput}
-          className="hidden"
-        />
-      </label>
-    </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.heic,.heif,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.rw2,.pef,.srw,image/jpeg,image/png,image/heic,image/heif"
+            onChange={handleFileInput}
+            className="hidden"
+          />
+        </label>
+      </div>
+
+      {/* Email Gate Modal */}
+      <EmailGateModal
+        isOpen={showEmailGate}
+        onClose={handleEmailGateClose}
+        onSuccess={handleEmailGateSuccess}
+      />
+    </>
   );
 }

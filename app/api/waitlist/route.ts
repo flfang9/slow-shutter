@@ -1,8 +1,96 @@
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
+const DOWNSTREAM_TIMEOUT_MS = 5000;
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function getClientIp(request: Request): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim();
+  }
+
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) {
+    return realIp.trim();
+  }
+
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) {
+    return cfIp.trim();
+  }
+
+  return 'unknown';
+}
+
+function cleanupRateLimitStore(now: number) {
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (value.resetAt <= now) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  cleanupRateLimitStore(now);
+
+  const entry = rateLimitStore.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    rateLimitStore.set(ip, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
+    return false;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+
+  entry.count += 1;
+  rateLimitStore.set(ip, entry);
+  return false;
+}
+
+function hashEmail(email: string): string {
+  return createHash('sha256').update(email).digest('hex').slice(0, 12);
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = DOWNSTREAM_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const { firstName, lastName, email } = await request.json();
+    const clientIp = getClientIp(request);
+
+    if (isRateLimited(clientIp)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    const { firstName, lastName, email, website, consent } = await request.json();
+
+    if (typeof website === 'string' && website.trim()) {
+      return NextResponse.json({ success: true });
+    }
 
     // Validate required fields
     if (!firstName || typeof firstName !== 'string' || !firstName.trim()) {
@@ -34,18 +122,32 @@ export async function POST(request: Request) {
       );
     }
 
+    if (consent !== true) {
+      return NextResponse.json(
+        { error: 'Consent is required' },
+        { status: 400 }
+      );
+    }
+
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
 
-    // Log to Vercel (visible in deployment logs)
-    console.log(`[WAITLIST] New signup: ${trimmedFirstName} ${trimmedLastName} <${trimmedEmail}> at ${new Date().toISOString()}`);
+    if (trimmedFirstName.length > 80 || trimmedLastName.length > 80 || trimmedEmail.length > 254) {
+      return NextResponse.json(
+        { error: 'Input is too long' },
+        { status: 400 }
+      );
+    }
+
+    const emailHash = hashEmail(trimmedEmail);
+    console.log(`[WAITLIST] Signup accepted: emailHash=${emailHash} ip=${clientIp} at ${new Date().toISOString()}`);
 
     // Send to Google Sheets via Apps Script webhook
     const sheetsWebhook = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
     if (sheetsWebhook) {
       try {
-        await fetch(sheetsWebhook, {
+        const response = await fetchWithTimeout(sheetsWebhook, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -55,6 +157,10 @@ export async function POST(request: Request) {
             timestamp: new Date().toISOString(),
           }),
         });
+
+        if (!response.ok) {
+          console.error(`[WAITLIST] Google Sheets webhook failed with status ${response.status}`);
+        }
       } catch (sheetError) {
         console.error('[WAITLIST] Google Sheets webhook failed:', sheetError);
       }
@@ -64,7 +170,7 @@ export async function POST(request: Request) {
     const resendApiKey = process.env.RESEND_API_KEY;
     if (resendApiKey) {
       try {
-        await fetch('https://api.resend.com/emails', {
+        const response = await fetchWithTimeout('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -77,6 +183,10 @@ export async function POST(request: Request) {
             text: `New waitlist signup for Blurrr iOS app:\n\nName: ${trimmedFirstName} ${trimmedLastName}\nEmail: ${trimmedEmail}\nTime: ${new Date().toISOString()}`,
           }),
         });
+
+        if (!response.ok) {
+          console.error(`[WAITLIST] Resend notification failed with status ${response.status}`);
+        }
       } catch (emailError) {
         // Don't fail the request if email fails
         console.error('[WAITLIST] Email notification failed:', emailError);

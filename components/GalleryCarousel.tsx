@@ -54,7 +54,7 @@ export function GalleryCarousel() {
       {/* Label */}
       <div className="flex justify-between items-center mb-4 px-1">
         <span className="text-xs font-medium uppercase tracking-wider text-white/40">
-          Made with Slow Shutter
+          Made with Blurrr
         </span>
         <div className="flex gap-1.5">
           {GALLERY_IMAGES.map((_, idx) => (

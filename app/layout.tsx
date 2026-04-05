@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   description: "Transform your photos with professional motion blur effects. Lateral motion, zoom pull, cinematic swirl, and film grain effects.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: '/favicon.ico',
+    icon: '/logo.png',
     apple: '/apple-touch-icon.png',
   },
   appleWebApp: {

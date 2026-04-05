@@ -657,8 +657,8 @@ export const filmicGrainShader = `
   }
 `;
 
-// Fisheye with proper barrel distortion (GoPro/peephole look)
-export const fisheyeShader = `
+// Vortex - aggressive circular spin blur with concentric streaks
+export const vortexShader = `
   precision highp float;
   uniform sampler2D u_image;
   uniform float u_intensity;
@@ -668,75 +668,75 @@ export const fisheyeShader = `
 
   void main() {
     vec4 original = texture2D(u_image, v_texCoord);
+
     if (u_intensity < 0.001) {
       gl_FragColor = original;
       return;
     }
 
-    // Remapped intensity: 0% slider = 15% effect, always visible
-    float curve = 0.15 + u_intensity * 0.85;
-
-    // Center UV at the specified center point
     vec2 center = u_swirlCenter;
-    vec2 uv = v_texCoord - center;
+    vec2 direction = v_texCoord - center;
+    float distance = length(direction);
 
-    // Aspect ratio correction for circular (not oval) distortion
-    float aspect = u_resolution.x / u_resolution.y;
-    uv.x *= aspect;
+    float curve = u_intensity * u_intensity;
 
-    float dist = length(uv);
+    // AGGRESSIVE rotation - creates visible concentric streaks
+    float maxRotation = curve * 0.65;
 
-    // Prevent division by zero at center
-    if (dist < 0.001) {
-      gl_FragColor = original;
-      return;
+    // Tight center protection
+    float centerBlend = smoothstep(0.0, 0.15, distance);
+
+    // Less original weight = more blur visible
+    vec4 color = original * 1.5;
+    float totalWeight = 1.5;
+
+    // === HARSH SPIN BLUR ===
+    // Fewer samples + stronger rotation = visible circular streaks
+    for (int i = 1; i <= 16; i++) {
+      float t = float(i) / 16.0;
+
+      // Strong rotation angle
+      float angle = t * maxRotation * distance;
+
+      float cosA = cos(angle);
+      float sinA = sin(angle);
+
+      // Clockwise rotation
+      vec2 cwPos = center + vec2(
+        direction.x * cosA - direction.y * sinA,
+        direction.x * sinA + direction.y * cosA
+      );
+
+      // Counter-clockwise rotation
+      vec2 ccwPos = center + vec2(
+        direction.x * cosA + direction.y * sinA,
+        -direction.x * sinA + direction.y * cosA
+      );
+
+      // Sharp falloff - less blending between samples
+      float falloff = 1.0 - t * 0.4;
+      float weight = falloff * centerBlend * u_intensity;
+
+      if (cwPos.x >= 0.0 && cwPos.x <= 1.0 && cwPos.y >= 0.0 && cwPos.y <= 1.0) {
+        color += texture2D(u_image, cwPos) * weight;
+        totalWeight += weight;
+      }
+      if (ccwPos.x >= 0.0 && ccwPos.x <= 1.0 && ccwPos.y >= 0.0 && ccwPos.y <= 1.0) {
+        color += texture2D(u_image, ccwPos) * weight;
+        totalWeight += weight;
+      }
     }
 
-    // === BARREL DISTORTION (classic fisheye formula) ===
-    // r' = r * (1 + k * r²)
-    // k > 0 = barrel (fisheye), k < 0 = pincushion
-    float k = mix(0.3, 1.2, curve);
+    vec3 result = (color / totalWeight).rgb;
 
-    // Apply barrel distortion - stretches edges outward
-    float distortion = 1.0 + k * dist * dist;
+    // Contrast boost to keep it punchy
+    result = (result - 0.5) * (1.0 + u_intensity * 0.2) + 0.5;
 
-    // Scale to keep more of the image visible
-    float scale = 1.0 / (1.0 + k * 0.25);
+    // Saturation restoration
+    float gray = dot(result, vec3(0.299, 0.587, 0.114));
+    result = mix(vec3(gray), result, 1.0 + u_intensity * 0.1);
 
-    vec2 distortedUV = uv * distortion * scale;
-
-    // Undo aspect correction
-    distortedUV.x /= aspect;
-
-    // Move back to texture coordinates
-    distortedUV += center;
-
-    // Check bounds - outside image becomes black
-    if (distortedUV.x < 0.0 || distortedUV.x > 1.0 ||
-        distortedUV.y < 0.0 || distortedUV.y > 1.0) {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
-
-    vec4 color = texture2D(u_image, distortedUV);
-
-    // Subtle vignette for lens authenticity
-    float vig = 1.0 - dist * dist * curve * 0.4;
-    color.rgb *= max(vig, 0.75);
-
-    // Slight chromatic aberration at edges for realism
-    float chromaStrength = dist * curve * 0.008;
-    vec2 redOffset = distortedUV + (distortedUV - center) * chromaStrength;
-    vec2 blueOffset = distortedUV - (distortedUV - center) * chromaStrength;
-
-    if (redOffset.x >= 0.0 && redOffset.x <= 1.0 && redOffset.y >= 0.0 && redOffset.y <= 1.0) {
-      color.r = texture2D(u_image, redOffset).r;
-    }
-    if (blueOffset.x >= 0.0 && blueOffset.x <= 1.0 && blueOffset.y >= 0.0 && blueOffset.y <= 1.0) {
-      color.b = texture2D(u_image, blueOffset).b;
-    }
-
-    gl_FragColor = vec4(color.rgb, 1.0);
+    gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);
   }
 `;
 

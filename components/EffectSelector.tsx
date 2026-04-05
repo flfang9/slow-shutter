@@ -7,7 +7,7 @@ const EFFECTS: Effect[] = [
   {
     id: 'lateral-motion',
     name: 'Lateral Motion',
-    description: 'Side-to-side motion blur',
+    description: 'Handheld directional blur',
     preview: '/effect-previews/lateral.jpg',
   },
   {
@@ -19,7 +19,7 @@ const EFFECTS: Effect[] = [
   {
     id: 'handheld-drift',
     name: 'Handheld Drift',
-    description: 'Natural camera shake',
+    description: 'Slow-shutter trailing',
     preview: '/effect-previews/drift.jpg',
   },
   {
@@ -41,10 +41,10 @@ const EFFECTS: Effect[] = [
     preview: '/effect-previews/film-grain.jpg',
   },
   {
-    id: 'fisheye',
-    name: 'Fisheye',
-    description: 'Barrel lens distortion',
-    preview: '/effect-previews/fisheye.jpg',
+    id: 'vortex',
+    name: 'Vortex',
+    description: 'Tap to set center',
+    preview: '/effect-previews/vortex.jpg',
   },
 ];
 

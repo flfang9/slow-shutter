@@ -1,17 +1,17 @@
 'use client';
 
-import { Effect } from '@/types';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Circle } from 'lucide-react';
+import { Effect, EffectType } from '@/types';
+import type { LucideIcon } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Film, Circle, Loader } from 'lucide-react';
 
-const EFFECT_ICONS = {
+const EFFECT_ICONS: Record<EffectType, LucideIcon> = {
   'lateral-motion': MoveRight,
   'vertical-zoom': Maximize,
   'handheld-drift': Wind,
   'cinematic-swirl': RotateCw,
   'soft-light': Sparkles,
-  'light-trails': Zap,
   'film-grain': Film,
-  'fisheye': Circle,
+  'vortex': Loader,
 };
 
 interface EffectCardProps {
@@ -21,7 +21,7 @@ interface EffectCardProps {
 }
 
 export function EffectCard({ effect, selected, onSelect }: EffectCardProps) {
-  const Icon = EFFECT_ICONS[effect.id as keyof typeof EFFECT_ICONS];
+  const Icon = EFFECT_ICONS[effect.id] ?? Circle;
 
   return (
     <button

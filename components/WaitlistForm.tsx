@@ -7,6 +7,8 @@ export function WaitlistForm() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -31,6 +33,12 @@ export function WaitlistForm() {
       return;
     }
 
+    if (!consent) {
+      setStatus('error');
+      setErrorMessage('Please agree to be contacted about Blurrr updates');
+      return;
+    }
+
     setStatus('loading');
     setErrorMessage('');
 
@@ -38,7 +46,13 @@ export function WaitlistForm() {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() }),
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          website: website.trim(),
+          consent,
+        }),
       });
 
       if (res.ok) {
@@ -46,6 +60,8 @@ export function WaitlistForm() {
         setFirstName('');
         setLastName('');
         setEmail('');
+        setWebsite('');
+        setConsent(false);
       } else {
         const data = await res.json();
         setStatus('error');
@@ -78,7 +94,20 @@ export function WaitlistForm() {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex gap-2">
+        <div className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            name="website"
+            type="text"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:gap-2">
           <input
             type="text"
             value={firstName}
@@ -105,6 +134,19 @@ export function WaitlistForm() {
           className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
           disabled={status === 'loading'}
         />
+
+        <label className="flex items-start gap-3 text-sm text-white/70">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            disabled={status === 'loading'}
+            className="mt-0.5 h-4 w-4 rounded border border-white/20 bg-white/5 accent-white"
+          />
+          <span>
+            I agree to be contacted about Blurrr updates and launch news.
+          </span>
+        </label>
 
         <button
           type="submit"
