@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Crop, Circle, ChevronDown, ChevronUp, Loader } from 'lucide-react';
+import { MoveRight, Maximize, Wind, RotateCw, Sparkles, Zap, Film, Crop, Loader } from 'lucide-react';
 import { EffectType } from '@/types';
 import { DropZone } from '@/components/DropZone';
 import { EffectSelector } from '@/components/EffectSelector';
@@ -13,7 +13,6 @@ import { GridBackground } from '@/components/GridBackground';
 import { CropModal } from '@/components/CropModal';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { GalleryCarousel } from '@/components/GalleryCarousel';
-import { WaitlistForm } from '@/components/WaitlistForm';
 import {
   validateImageFile,
   loadImage,
@@ -41,7 +40,6 @@ export default function Home() {
   const [swirlIndicatorPos, setSwirlIndicatorPos] = useState({ x: 0, y: 0 }); // Screen position for crosshair
   const [userExpandedDock, setUserExpandedDock] = useState(false);
   const [enhanceEnabled, setEnhanceEnabled] = useState(false);
-  const [waitlistMinimized, setWaitlistMinimized] = useState(false);
   const swirlIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -55,8 +53,6 @@ export default function Home() {
   const isPreviewingRef = useRef(false);
   const activeTouchListenersRef = useRef<Array<() => void>>([]);
   const prevIntensityRef = useRef(intensity);
-  const waitlistTouchCleanupRef = useRef<(() => void) | null>(null);
-  const waitlistTouchMovedRef = useRef(false);
 
   // Clean up active touch listeners on unmount
   useEffect(() => {
@@ -66,12 +62,6 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      waitlistTouchCleanupRef.current?.();
-      waitlistTouchCleanupRef.current = null;
-    };
-  }, []);
 
   // Keep refs in sync
   useEffect(() => { intensityRef.current = intensity; }, [intensity]);
@@ -480,41 +470,6 @@ export default function Home() {
     setShowCropModal(false);
   };
 
-  const toggleWaitlistCard = useCallback((minimized?: boolean) => {
-    setWaitlistMinimized((current) => minimized ?? !current);
-  }, []);
-
-  const handleWaitlistTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    const startY = e.touches[0].clientY;
-    waitlistTouchMovedRef.current = false;
-
-    waitlistTouchCleanupRef.current?.();
-
-    const handleMove = (moveEvent: TouchEvent) => {
-      const deltaY = moveEvent.touches[0].clientY - startY;
-      if (deltaY > 50) {
-        waitlistTouchMovedRef.current = true;
-        setWaitlistMinimized(true);
-      } else if (deltaY < -50) {
-        waitlistTouchMovedRef.current = true;
-        setWaitlistMinimized(false);
-      }
-    };
-
-    const handleEnd = () => {
-      document.removeEventListener('touchmove', handleMove);
-      document.removeEventListener('touchend', handleEnd);
-      document.removeEventListener('touchcancel', handleEnd);
-      if (waitlistTouchCleanupRef.current === handleEnd) {
-        waitlistTouchCleanupRef.current = null;
-      }
-    };
-
-    waitlistTouchCleanupRef.current = handleEnd;
-    document.addEventListener('touchmove', handleMove, { passive: true });
-    document.addEventListener('touchend', handleEnd);
-    document.addEventListener('touchcancel', handleEnd);
-  }, []);
 
   return (
     <>
@@ -637,6 +592,29 @@ export default function Home() {
           {/* Manifesto (Empty State) */}
           {!uploadedImage && (
             <div className="flex-1 p-8 flex flex-col justify-center">
+              {/* App Store Download - TOP */}
+              <div className="mb-8 p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] rounded-2xl border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="text-xs font-medium text-white/70 uppercase tracking-wider">Now on the App Store</span>
+                </div>
+                <a
+                  href="https://apps.apple.com/us/app/blurrr-camera/id6761066911"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block hover:scale-105 transition-transform"
+                >
+                  <img
+                    src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/white/en-us?size=250x83"
+                    alt="Download on the App Store"
+                    className="h-12"
+                  />
+                </a>
+              </div>
+
               <h2 className="text-2xl font-light text-white/90 mb-4 leading-tight">
                 Motion in Every Frame
               </h2>
@@ -653,18 +631,6 @@ export default function Home() {
                 <div>→ Soft Glow</div>
                 <div>→ Film Grade</div>
                 <div>→ Vortex</div>
-              </div>
-
-              {/* Blurrr iOS Waitlist - Prominent Card */}
-              <div className="mt-8 p-6 bg-gradient-to-br from-white/[0.08] to-white/[0.02] rounded-2xl border border-white/10">
-                <div className="flex items-center gap-3 mb-4">
-                  <img src="/logo.jpg" alt="Blurrr" className="w-10 h-10 rounded-xl" />
-                  <div>
-                    <h3 className="text-base font-semibold text-white">Blurrr for iOS</h3>
-                    <p className="text-xs text-white/50">Coming soon to the App Store</p>
-                  </div>
-                </div>
-                <WaitlistForm />
               </div>
 
               {/* Made by footer */}
@@ -778,60 +744,33 @@ export default function Home() {
         {/* Dropzone + Example - Scrollable */}
         {!uploadedImage && (
           <div className="relative z-10 h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-y-contain">
-            <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-16 pb-24 px-4">
+            <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-8 pb-24 px-4">
+              {/* App Store Download - TOP */}
+              <div className="w-full max-w-sm mb-6 p-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02]">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  </span>
+                  <span className="text-sm font-medium text-white/80 uppercase tracking-wider">Now Available</span>
+                </div>
+                <a
+                  href="https://apps.apple.com/us/app/blurrr-camera/id6761066911"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block hover:scale-105 active:scale-95 transition-transform"
+                >
+                  <img
+                    src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/white/en-us?size=250x83"
+                    alt="Download on the App Store"
+                    className="h-14"
+                  />
+                </a>
+              </div>
+
               {/* Upload Box */}
               <div className="mb-6">
                 <DropZone onFileSelect={handleFileSelect} />
-              </div>
-
-              {/* Blurrr iOS Waitlist - mobile (prominent card) */}
-              <div className="w-full max-w-sm mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] overflow-hidden">
-                <div
-                  className="px-5 pt-3 pb-4 cursor-pointer select-none"
-                  onClick={() => {
-                    if (waitlistTouchMovedRef.current) {
-                      waitlistTouchMovedRef.current = false;
-                      return;
-                    }
-                    toggleWaitlistCard();
-                  }}
-                >
-                  <div
-                    className="mb-3 flex justify-center touch-pan-y"
-                    onTouchStart={handleWaitlistTouchStart}
-                  >
-                    <div className="h-1 w-10 rounded-full bg-white/20" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <img src="/logo.jpg" alt="Blurrr" className="w-12 h-12 rounded-xl" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">Blurrr for iOS</h3>
-                          <p className="text-xs text-white/50">
-                            {waitlistMinimized ? 'Swipe up or tap to open' : 'Swipe down to tuck this away'}
-                          </p>
-                        </div>
-                        {waitlistMinimized ? (
-                          <ChevronUp className="h-5 w-5 flex-shrink-0 text-white/50" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 flex-shrink-0 text-white/50" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  className={`grid transition-all duration-300 ease-out ${
-                    waitlistMinimized ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <div className="px-5 pb-5">
-                      <WaitlistForm />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Divider */}
